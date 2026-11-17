@@ -57,8 +57,7 @@ class OpenApiConfig {
                 new StringSchema().format("email")));
   }
 
-  @Bean
-  OpenAPI libraryApi() {
+  private static Components libraryComponents() {
     var schemas = new LinkedHashMap<String, Schema>();
     schemas.put(
         "User",
@@ -267,10 +266,15 @@ class OpenApiConfig {
                     .description(
                         "Sign in with /auth/login; browser sends its HttpOnly cookie automatically."
                             + " / 先调用登录接口，浏览器自动携带 HttpOnly Cookie。"));
+    return components;
+  }
+
+  @Bean
+  OpenAPI libraryApi() {
     return new OpenAPI()
         .openapi("3.0.3")
         .servers(List.of(new Server().url("/")))
-        .components(components)
+        .components(new Components())
         .info(
             new Info()
                 .title("E-Library Service / 电子图书馆 API")
@@ -286,6 +290,12 @@ class OpenApiConfig {
   @Bean
   OpenApiCustomizer documentedResponses() {
     return api -> {
+      // springdoc prunes unreferenced definitions before OpenApiCustomizer runs. Install response
+      // components in the same phase as their references, preserving generated request DTO schemas.
+      if (api.getComponents() == null) api.setComponents(new Components());
+      Components definitions = libraryComponents();
+      definitions.getSchemas().forEach(api.getComponents()::addSchemas);
+      definitions.getSecuritySchemes().forEach(api.getComponents()::addSecuritySchemes);
       if (api.getPaths() == null) return;
       for (var path : api.getPaths().entrySet())
         for (var operation : path.getValue().readOperationsMap().entrySet()) {
@@ -381,7 +391,7 @@ class OpenApiConfig {
           Map.entry("me", "Current account / 当前账号"),
           Map.entry("login", "Sign in / 登录"),
           Map.entry("logout", "Sign out / 退出登录"),
-          Map.entry("register", "Register and queue verification email / 注册并发送验证邮件"),
+          Map.entry("register", "Register and queue account-confirmation email / 注册并发送账号确认邮件"),
           Map.entry("verify", "Verify email / 验证邮箱"),
           Map.entry("resetRequest", "Request password reset / 请求密码重置"),
           Map.entry("reset", "Complete password reset / 完成密码重置"),

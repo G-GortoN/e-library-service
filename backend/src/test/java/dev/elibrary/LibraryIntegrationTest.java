@@ -228,6 +228,38 @@ class LibraryIntegrationTest {
               HttpResponse.BodyHandlers.ofString());
       assertEquals(200, response.statusCode(), path);
     }
+    var specificationResponse =
+        visitor.http.send(
+            HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/openapi"))
+                .GET()
+                .build(),
+            HttpResponse.BodyHandlers.ofString());
+    assertEquals(200, specificationResponse.statusCode());
+    JsonNode specification = body(specificationResponse);
+    var references = specification.findValues("$ref");
+    assertFalse(references.isEmpty());
+    for (JsonNode reference : references) {
+      String value = reference.asText();
+      if (value.startsWith("#/components/schemas/")) {
+        assertFalse(
+            specification.at(value.substring(1)).isMissingNode(), "Unresolved schema: " + value);
+      }
+    }
+    assertEquals(
+        "string", specification.at("/components/schemas/Book/properties/title/type").asText());
+    assertEquals(
+        "apiKey", specification.at("/components/securitySchemes/sessionCookie/type").asText());
+    assertEquals(
+        "cookie", specification.at("/components/securitySchemes/sessionCookie/in").asText());
+    assertEquals(
+        "JSESSIONID", specification.at("/components/securitySchemes/sessionCookie/name").asText());
+    assertTrue(
+        specification.at("/paths/~1api~1v1~1admin~1users/get/security/0/sessionCookie").isArray());
+    assertTrue(
+        specification
+            .at("/paths/~1api~1v1~1auth~1register/post/summary")
+            .asText()
+            .contains("account-confirmation"));
     assertEquals(401, visitor.get("/me/loans").statusCode());
     assertEquals(
         403, visitor.raw("POST", "/loans", Map.of("bookId", book()), Map.of()).statusCode());
