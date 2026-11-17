@@ -1,0 +1,29 @@
+name: e-library-local
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: elibrary
+      POSTGRES_USER: elibrary
+      POSTGRES_PASSWORD: local-development-only
+    ports:
+      - "127.0.0.1:${LOCAL_DATABASE_PORT:-5433}:5432"
+    volumes:
+      - local_database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elibrary -d elibrary"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:v1
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+    environment:
+      MP_MAX_MESSAGES: "500"
+
+volumes:
+  local_database:

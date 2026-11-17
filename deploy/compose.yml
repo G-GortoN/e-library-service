@@ -1,0 +1,101 @@
+name: e-library
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: elibrary
+      POSTGRES_USER: elibrary
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?Set a strong DATABASE_PASSWORD in deploy/.env}
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=40"]
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elibrary -d elibrary"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    mem_limit: 512m
+    stop_grace_period: 60s
+    logging: *logging
+
+  api:
+    image: ${API_IMAGE:?Set API_IMAGE to a published image SHA tag or digest}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${APP_PROFILE:-prod}
+      DATABASE_URL: jdbc:postgresql://db:5432/elibrary
+      DATABASE_USERNAME: elibrary
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?Set DATABASE_PASSWORD}
+      APP_PUBLIC_BASE_URL: ${APP_PUBLIC_BASE_URL:?Set the trusted HTTPS public base URL}
+      APP_PUBLIC_BACKUP_BASE_URL: ${APP_PUBLIC_BACKUP_BASE_URL:-}
+      APP_MEDIA_DIRECTORY: /app/media
+      APP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL:?Set APP_ADMIN_EMAIL}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:?Set APP_ADMIN_PASSWORD}
+      APP_SEED_DEMO: ${APP_SEED_DEMO:-false}
+      APP_COOKIE_SECURE: "true"
+      APP_SCHEDULING_ENABLED: "true"
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_AUTH: ${SMTP_AUTH:-true}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      SMTP_SSL: ${SMTP_SSL:-false}
+      APP_MAIL_ENABLED: ${APP_MAIL_ENABLED:-false}
+      APP_MAIL_FROM: ${APP_MAIL_FROM:-noreply@example.invalid}
+    volumes:
+      - media:/app/media
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 1024m
+    stop_grace_period: 30s
+    logging: *logging
+
+  web:
+    image: ${WEB_IMAGE:?Set WEB_IMAGE to a published image SHA tag or digest}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      PUBLIC_HOSTNAME: ${PUBLIC_HOSTNAME:-localhost}
+    ports:
+      - "127.0.0.1:${WEB_HTTP_PORT:-18081}:8080"
+      - "[::]:${WEB_HTTPS_PORT:-4443}:8443"
+    volumes:
+      - ${CADDY_CONFIG_FILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
+      - ./certs:/etc/caddy/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 128m
+    logging: *logging
+
+volumes:
+  database:
+  media:
+  caddy_data:
+  caddy_config:

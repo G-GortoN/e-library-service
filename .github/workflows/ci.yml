@@ -1,0 +1,259 @@
+name: Verify and publish
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - name: Run unit and PostgreSQL integration tests
+        run: ./mvnw -B verify
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: backend-test-reports
+          path: |
+            backend/target/surefire-reports/
+            backend/target/failsafe-reports/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  frontend:
+    name: Frontend verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build
+
+  configuration:
+    name: Deployment configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Validate Compose files without printing secrets
+        run: |
+          docker compose --env-file deploy/.env.example -f deploy/compose.yml config --quiet
+          docker compose -f deploy/compose.local.yml config --quiet
+          docker compose --env-file deploy/.env.example -f deploy/compose.yml -f deploy/compose.build.yml config --quiet
+      - name: Validate Caddy HTTP and supplied-certificate configurations
+        run: |
+          mkdir -p "$RUNNER_TEMP/elibrary-certs"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost' -keyout "$RUNNER_TEMP/elibrary-certs/privkey.pem" -out "$RUNNER_TEMP/elibrary-certs/fullchain.pem" 2>/dev/null
+          docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          docker run --rm -e PUBLIC_HOSTNAME=localhost -v "$PWD/deploy/Caddyfile.https:/etc/caddy/Caddyfile:ro" -v "$RUNNER_TEMP/elibrary-certs:/etc/caddy/certs:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+      - name: Check Python smoke script syntax
+        run: python3 -c "compile(open('deploy/scripts/smoke.py').read(), 'smoke.py', 'exec')"
+
+  publish:
+    name: Publish ${{ matrix.component }} image
+    needs: [backend, frontend, configuration]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: api
+            dockerfile: backend/Dockerfile
+          - component: web
+            dockerfile: frontend/Dockerfile
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Set lowercase image name
+        id: image
+        env:
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          repository="${GITHUB_REPOSITORY,,}"
+          printf 'name=ghcr.io/%s-%s\n' "$repository" "$COMPONENT" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and publish NAS image
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.image.outputs.name }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
+      - name: Record immutable image reference
+        env:
+          IMAGE_NAME: ${{ steps.image.outputs.name }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          record = {"component": os.environ["COMPONENT"], "image": os.environ["IMAGE_NAME"], "digest": os.environ["IMAGE_DIGEST"], "commit": os.environ["GITHUB_SHA"]}
+          Path("image-reference.json").write_text(json.dumps(record, indent=2) + "\n")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write(f'Image: `{record["image"]}@{record["digest"]}`\n')
+          PY
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: image-reference-${{ matrix.component }}
+          path: image-reference.json
+          retention-days: 30
+
+  container-smoke:
+    name: Published container runtime smoke
+    needs: [publish]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    env:
+      COMPOSE_PROJECT_NAME: elibrary-ci-${{ github.run_id }}-${{ github.run_attempt }}
+      # Synthetic credentials for this disposable runner only; never deployed to NAS.
+      CI_ADMIN_EMAIL: ci-admin@example.test
+      CI_ADMIN_PASSWORD: CI-Only-Temporary-Administrator2026!
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepare disposable runtime configuration
+        run: |
+          umask 077
+          repository="${GITHUB_REPOSITORY,,}"
+          cat > "$RUNNER_TEMP/elibrary-verify.env" <<EOF
+          API_IMAGE=ghcr.io/${repository}-api:sha-${GITHUB_SHA}
+          WEB_IMAGE=ghcr.io/${repository}-web:sha-${GITHUB_SHA}
+          DATABASE_PASSWORD=CI-Only-Temporary-Database2026!
+          APP_ADMIN_EMAIL=${CI_ADMIN_EMAIL}
+          APP_ADMIN_PASSWORD=${CI_ADMIN_PASSWORD}
+          APP_PROFILE=demo
+          APP_SEED_DEMO=true
+          APP_MAIL_ENABLED=false
+          APP_PUBLIC_BASE_URL=http://127.0.0.1:18081
+          PUBLIC_HOSTNAME=localhost
+          WEB_HTTP_PORT=18081
+          WEB_HTTPS_PORT=4443
+          CADDY_CONFIG_FILE=./Caddyfile
+          EOF
+          docker compose --env-file "$RUNNER_TEMP/elibrary-verify.env" -f deploy/compose.yml -f deploy/compose.verify.yml config --quiet
+      - name: Pull same-commit images and wait for healthy services
+        run: |
+          docker compose --env-file "$RUNNER_TEMP/elibrary-verify.env" -f deploy/compose.yml -f deploy/compose.verify.yml pull
+          docker compose --env-file "$RUNNER_TEMP/elibrary-verify.env" -f deploy/compose.yml -f deploy/compose.verify.yml up -d --wait --wait-timeout 180
+      - name: Verify non-root volume writes and read-only application filesystems
+        run: |
+          docker compose --env-file "$RUNNER_TEMP/elibrary-verify.env" -f deploy/compose.yml -f deploy/compose.verify.yml exec -T api sh -ec '
+            test "$(id -u)" = 10001
+            touch /app/media/.ci-write-check
+            rm /app/media/.ci-write-check
+            if touch /app/.ci-readonly-check 2>/dev/null; then
+              rm /app/.ci-readonly-check
+              printf "%s\n" "API application filesystem must be read-only" >&2
+              exit 1
+            fi
+          '
+          docker compose --env-file "$RUNNER_TEMP/elibrary-verify.env" -f deploy/compose.yml -f deploy/compose.verify.yml exec -T web sh -ec '
+            test "$(id -u)" = 10001
+            touch /data/.ci-write-check /config/.ci-write-check
+            rm /data/.ci-write-check /config/.ci-write-check
+            if touch /srv/.ci-readonly-check 2>/dev/null; then
+              rm /srv/.ci-readonly-check
+              printf "%s\n" "Web application filesystem must be read-only" >&2
+              exit 1
+            fi
+          '
+      - name: Check static SPA, deep-link fallback and built JavaScript
+        run: |
+          python3 - <<'PY'
+          import re
+          from urllib.request import urlopen
+          base = "http://127.0.0.1:18081"
+          with urlopen(base + "/healthz", timeout=10) as response:
+              assert response.status == 200 and response.read().strip() == b"ok"
+          for path in ("/", "/shelf"):
+              with urlopen(base + path, timeout=10) as response:
+                  assert response.status == 200
+                  assert "text/html" in response.headers.get("Content-Type", "")
+                  html = response.read().decode()
+                  assert 'id="root"' in html
+          asset = re.search(r'src="(/assets/[^\"]+\.js)"', html)
+          assert asset, "No built JavaScript entry in served SPA"
+          with urlopen(base + asset.group(1), timeout=10) as response:
+              assert response.status == 200
+              assert "javascript" in response.headers.get("Content-Type", "")
+              assert response.read(64).strip().lower()[:9] != b"<!doctype"
+          print("PASS: Web health, SPA root/deep-link fallback and built JavaScript asset")
+          PY
+      - name: Exercise sessions, CSRF, permissions and lending through Web proxy
+        env:
+          SMOKE_EMAIL: reader@example.com
+          SMOKE_PASSWORD: LibraryDemo2026!
+          SMOKE_ADMIN_EMAIL: ${{ env.CI_ADMIN_EMAIL }}
+          SMOKE_ADMIN_PASSWORD: ${{ env.CI_ADMIN_PASSWORD }}
+        run: python3 deploy/scripts/smoke.py --base-url http://127.0.0.1:18081 --exercise
+      - name: Tail disposable service logs after failure
+        if: failure()
+        continue-on-error: true
+        run: |
+          if [ -f "$RUNNER_TEMP/elibrary-verify.env" ]; then
+            docker compose --env-file "$RUNNER_TEMP/elibrary-verify.env" -f deploy/compose.yml -f deploy/compose.verify.yml logs --no-color --tail=150 api web db
+          fi
+      - name: Remove disposable containers and volumes
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/elibrary-verify.env" ]; then
+            docker compose --env-file "$RUNNER_TEMP/elibrary-verify.env" -f deploy/compose.yml -f deploy/compose.verify.yml down -v --remove-orphans
+            rm -f "$RUNNER_TEMP/elibrary-verify.env"
+          fi

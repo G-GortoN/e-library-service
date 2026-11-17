@@ -1,0 +1,11 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    image: e-library-api:local
+  web:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+    image: e-library-web:local

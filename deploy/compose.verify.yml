@@ -1,0 +1,7 @@
+# TEST ONLY: ephemeral CI runner, never use this override on the NAS.
+# The CI environment separately selects profile=demo, seed=true and mail=false.
+# Only this test override permits HTTP session cookies on the loopback Web origin.
+services:
+  api:
+    environment:
+      APP_COOKIE_SECURE: "false"

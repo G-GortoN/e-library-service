@@ -38,6 +38,7 @@ id_ed25519
 /deploy/media/
 /deploy/uploads/
 /deploy/secrets/
+/deploy/certs/
 /deploy/caddy-data/
 /deploy/caddy-config/
 /deploy/backups/
