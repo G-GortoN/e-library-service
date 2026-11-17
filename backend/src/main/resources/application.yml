@@ -1,0 +1,80 @@
+spring:
+  jackson:
+    deserialization:
+      accept-float-as-int: false
+  application:
+    name: e-library-service
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/elibrary}
+    username: ${DATABASE_USERNAME:elibrary}
+    password: ${DATABASE_PASSWORD:}
+    hikari:
+      maximum-pool-size: 6
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:1025}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${SMTP_STARTTLS:false}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+server:
+  forward-headers-strategy: native
+  port: ${PORT:8080}
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        http-only: true
+        secure: ${APP_COOKIE_SECURE:true}
+        same-site: lax
+  error:
+    include-message: never
+    include-stacktrace: never
+management:
+  health:
+    mail:
+      enabled: false
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+app:
+  public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost:5173}
+  public-backup-base-url: ${APP_PUBLIC_BACKUP_BASE_URL:}
+  media-directory: ${APP_MEDIA_DIRECTORY:./.local/media}
+  mail-from: ${APP_MAIL_FROM:library@example.invalid}
+  mail-enabled: ${APP_MAIL_ENABLED:false}
+  seed-demo: ${APP_SEED_DEMO:false}
+  admin-email: ${APP_ADMIN_EMAIL:}
+  admin-password: ${APP_ADMIN_PASSWORD:}
+  scheduling-enabled: ${APP_SCHEDULING_ENABLED:true}
+  loan-days: ${APP_LOAN_DAYS:14}
+  max-active-loans: ${APP_MAX_ACTIVE_LOANS:5}
+  renewal-days: ${APP_RENEWAL_DAYS:7}
+  max-renewals: ${APP_MAX_RENEWALS:1}
+  reservation-hours: ${APP_RESERVATION_HOURS:48}
+  fine-rate-minor: ${APP_FINE_RATE_MINOR:10}
+  fine-cap-minor: ${APP_FINE_CAP_MINOR:1000}
+
+springdoc:
+  swagger-ui:
+    path: /api/docs-internal
+  api-docs:
+    path: /api/openapi
