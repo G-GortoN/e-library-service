@@ -12,7 +12,9 @@
 		X-Frame-Options DENY
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 	}
-	respond /healthz "ok" 200
+	handle /healthz {
+		respond "ok" 200
+	}
 	handle /api/* {
 		reverse_proxy api:8080
 	}

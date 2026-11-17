@@ -221,7 +221,8 @@ jobs:
           from urllib.request import urlopen
           base = "http://127.0.0.1:18081"
           with urlopen(base + "/healthz", timeout=10) as response:
-              assert response.status == 200 and response.read().strip() == b"ok"
+              body = response.read().strip()
+              assert response.status == 200 and body == b"ok", f"Web health route returned {response.status}: {body[:80]!r}"
           for path in ("/", "/shelf"):
               with urlopen(base + path, timeout=10) as response:
                   assert response.status == 200
