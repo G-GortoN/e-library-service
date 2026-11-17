@@ -1,0 +1,47 @@
+# Local development tools
+.DS_Store
+.idea/
+.vscode/
+*.iml
+*.log
+*.swp
+*.swo
+
+# Local environment and credentials; commit redacted examples only
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.key
+*.pem
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
+# Java and frontend build output
+**/target/
+**/build/
+**/node_modules/
+**/dist/
+**/coverage/
+.pnpm-store/
+*.tsbuildinfo
+
+# Local-only/runtime data
+.local/
+/data/
+/uploads/
+/backups/
+/logs/
+/deploy/data/
+/deploy/media/
+/deploy/uploads/
+/deploy/secrets/
+/deploy/caddy-data/
+/deploy/caddy-config/
+/deploy/backups/
+
+# Test and browser artifacts
+**/test-results/
+**/playwright-report/
