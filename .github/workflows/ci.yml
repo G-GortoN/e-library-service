@@ -175,6 +175,7 @@ jobs:
           cat > "$RUNNER_TEMP/elibrary-verify.env" <<EOF
           API_IMAGE=ghcr.io/${repository}-api:sha-${GITHUB_SHA}
           WEB_IMAGE=ghcr.io/${repository}-web:sha-${GITHUB_SHA}
+          DB_IMAGE=public.ecr.aws/docker/library/postgres@sha256:005c5c37db96c1e6652a79ea31f9886402fba81ac95dc2db897739121dd7f8f2
           DATABASE_PASSWORD=CI-Only-Temporary-Database2026!
           APP_ADMIN_EMAIL=${CI_ADMIN_EMAIL}
           APP_ADMIN_PASSWORD=${CI_ADMIN_PASSWORD}
