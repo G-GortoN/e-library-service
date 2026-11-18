@@ -16,6 +16,7 @@ project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 ssh "$NAS_SSH_TARGET" "mkdir -p '$NAS_PROJECT_DIR/deploy/scripts'; if [ ! -d '$NAS_PROJECT_DIR/deploy/certs' ]; then mkdir -m 700 '$NAS_PROJECT_DIR/deploy/certs'; fi"
 for file in compose.yml Caddyfile Caddyfile.https .env.example; do
     ssh "$NAS_SSH_TARGET" "cat > '$NAS_PROJECT_DIR/deploy/$file'" < "$project_dir/deploy/$file"
+    ssh "$NAS_SSH_TARGET" "chmod 644 '$NAS_PROJECT_DIR/deploy/$file'"
 done
 for file in deploy.sh backup.sh smoke.py; do
     ssh "$NAS_SSH_TARGET" "cat > '$NAS_PROJECT_DIR/deploy/scripts/$file'" < "$project_dir/deploy/scripts/$file"
