@@ -2,6 +2,7 @@ import { App, Button, Popconfirm, Tabs, Tag } from "antd";
 import { ArrowRightOutlined, ReloadOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api, errorMessage } from "../api";
 import {
   BookCover,
@@ -16,17 +17,18 @@ import {
 import type { Loan, Reservation } from "../types";
 
 export default function Shelf() {
+  const { t } = useTranslation("reader");
   const [search, setSearch] = useSearchParams();
   const tab = search.get("tab") || "current";
   return (
     <section className="standard-page">
       <PageHeading
-        eyebrow="YOUR READING CORNER"
-        title="我的书架"
-        description="读过的故事，正在翻阅的世界，还有值得期待的下一本。"
+        eyebrow={t("shelf.eyebrow")}
+        title={t("shelf.title")}
+        description={t("shelf.description")}
         extra={
           <Link className="text-link" to="/books">
-            再找一本 <ArrowRightOutlined />
+            {t("shelf.findAnother")} <ArrowRightOutlined />
           </Link>
         }
       />
@@ -34,13 +36,17 @@ export default function Shelf() {
         activeKey={tab}
         onChange={(key) => setSearch({ tab: key })}
         items={[
-          { key: "current", label: "正在阅读", children: <Loans /> },
+          { key: "current", label: t("shelf.current"), children: <Loans /> },
           {
             key: "reservations",
-            label: "我的预约",
+            label: t("shelf.reservations"),
             children: <Reservations />,
           },
-          { key: "history", label: "阅读足迹", children: <Loans history /> },
+          {
+            key: "history",
+            label: t("shelf.history"),
+            children: <Loans history />,
+          },
         ]}
       />
     </section>
@@ -48,6 +54,7 @@ export default function Shelf() {
 }
 
 function Loans({ history = false }: { history?: boolean }) {
+  const { t } = useTranslation("reader");
   const client = useQueryClient();
   const { message } = App.useApp();
   const loans = useQuery({
@@ -57,7 +64,7 @@ function Loans({ history = false }: { history?: boolean }) {
   const returnBook = useMutation({
     mutationFn: (id: number) => api.put(`/loans/${id}/return`),
     onSuccess: () => {
-      message.success("已归还。期待下一次相遇。");
+      message.success(t("loans.returnSuccess"));
       client.invalidateQueries();
     },
     onError: (e) => message.error(errorMessage(e)),
@@ -65,7 +72,7 @@ function Loans({ history = false }: { history?: boolean }) {
   const renew = useMutation({
     mutationFn: (id: number) => api.post<Loan>(`/loans/${id}/renewals`),
     onSuccess: () => {
-      message.success("续借成功，阅读时光延长了。");
+      message.success(t("loans.renewSuccess"));
       client.invalidateQueries();
     },
     onError: (e) => message.error(errorMessage(e)),
@@ -76,11 +83,11 @@ function Loans({ history = false }: { history?: boolean }) {
   if (!loans.data.length)
     return (
       <EmptyState
-        title={history ? "阅读足迹，等待第一步" : "书架还空着，故事正在等你"}
-        description="找到一本喜欢的书，让它陪你度过下一段时光。"
+        title={history ? t("loans.historyEmpty") : t("loans.currentEmpty")}
+        description={t("loans.emptyDescription")}
         action={
           <Link to="/books">
-            <Button type="primary">去发现好书</Button>
+            <Button type="primary">{t("loans.discover")}</Button>
           </Link>
         }
       />
@@ -96,24 +103,30 @@ function Loans({ history = false }: { history?: boolean }) {
             </Link>
             <div className="loan-info">
               <span className="eyebrow">
-                {history ? "A CHAPTER COMPLETED" : "ON YOUR SHELF"}
+                {history
+                  ? t("loans.completedEyebrow")
+                  : t("loans.currentEyebrow")}
               </span>
               <Link to={`/books/${loan.bookId}`}>
                 <h2>{loan.title}</h2>
               </Link>
               <p>{loan.author}</p>
               <div className="loan-dates">
-                <span>借阅于 {formatDate(loan.borrowedAt)}</span>
+                <span>
+                  {t("loans.borrowedAt", { date: formatDate(loan.borrowedAt) })}
+                </span>
                 <span className={overdue ? "danger-text" : ""}>
                   {history
-                    ? `归还于 ${formatDate(loan.returnedAt)}`
-                    : `到期于 ${formatDate(loan.dueAt)}`}
+                    ? t("loans.returnedAt", {
+                        date: formatDate(loan.returnedAt),
+                      })
+                    : t("loans.dueAt", { date: formatDate(loan.dueAt) })}
                 </span>
               </div>
-              {overdue && <Tag color="red">已逾期，请及时归还</Tag>}
+              {overdue && <Tag color="red">{t("loans.overdue")}</Tag>}
               {loan.fineAmountMinor > 0 && (
                 <span className="danger-text small-text">
-                  演示逾期金额 {money(loan.fineAmountMinor)}
+                  {t("loans.demoFine", { amount: money(loan.fineAmountMinor) })}
                 </span>
               )}
             </div>
@@ -125,16 +138,16 @@ function Loans({ history = false }: { history?: boolean }) {
                   loading={renew.isPending && renew.variables === loan.id}
                   onClick={() => renew.mutate(loan.id)}
                 >
-                  续借 7 天
+                  {t("loans.renew")}
                 </Button>
                 <Popconfirm
-                  title="确认归还这本书？"
-                  description="归还后将释放借阅授权，预约队列会继续推进。"
+                  title={t("loans.returnConfirm")}
+                  description={t("loans.returnDescription")}
                   onConfirm={() =>
                     returnBook.mutateAsync(loan.id).catch(() => {})
                   }
-                  okText="确认归还"
-                  cancelText="继续阅读"
+                  okText={t("loans.returnOk")}
+                  cancelText={t("loans.keepReading")}
                 >
                   <Button
                     type="primary"
@@ -142,13 +155,13 @@ function Loans({ history = false }: { history?: boolean }) {
                       returnBook.isPending && returnBook.variables === loan.id
                     }
                   >
-                    归还书籍
+                    {t("loans.return")}
                   </Button>
                 </Popconfirm>
                 <small>
                   {loan.renewalCount
-                    ? "已使用续借机会"
-                    : "有其他读者预约时无法续借"}
+                    ? t("loans.renewalUsed")
+                    : t("loans.renewalHint")}
                 </small>
               </div>
             )}
@@ -160,6 +173,7 @@ function Loans({ history = false }: { history?: boolean }) {
 }
 
 function Reservations() {
+  const { t } = useTranslation("reader");
   const { message } = App.useApp();
   const client = useQueryClient();
   const list = useQuery({
@@ -169,7 +183,7 @@ function Reservations() {
   const cancel = useMutation({
     mutationFn: (id: number) => api.delete(`/reservations/${id}`),
     onSuccess: () => {
-      message.success("已取消预约。");
+      message.success(t("reservations.cancelSuccess"));
       client.invalidateQueries();
     },
     onError: (e) => message.error(errorMessage(e)),
@@ -177,7 +191,7 @@ function Reservations() {
   const claim = useMutation({
     mutationFn: (id: number) => api.post("/loans", { bookId: id }),
     onSuccess: () => {
-      message.success("领取成功，书已放入你的书架。");
+      message.success(t("reservations.claimSuccess"));
       client.invalidateQueries();
     },
     onError: (e) => message.error(errorMessage(e)),
@@ -188,11 +202,11 @@ function Reservations() {
   if (!list.data.length)
     return (
       <EmptyState
-        title="没有等待中的故事"
-        description="喜欢的书暂时不可借时，可以加入预约队列。"
+        title={t("reservations.emptyTitle")}
+        description={t("reservations.emptyDescription")}
         action={
           <Link to="/books">
-            <Button>浏览馆藏</Button>
+            <Button>{t("reservations.browse")}</Button>
           </Link>
         }
       />
@@ -205,7 +219,7 @@ function Reservations() {
             <BookCover
               book={{
                 title: r.title,
-                author: "FOLIO LIBRARY",
+                author: t("reservations.library"),
                 coverUrl: r.coverUrl,
               }}
               small
@@ -218,10 +232,14 @@ function Reservations() {
             </Link>
             <p>
               {r.status === "READY"
-                ? `为你保留至 ${formatDate(r.expiresAt, true)}`
+                ? t("reservations.readyUntil", {
+                    date: formatDate(r.expiresAt, true),
+                  })
                 : r.status === "WAITING"
-                  ? `排队位置 ${r.position} · 轮到你时会收到提醒`
-                  : `预约于 ${formatDate(r.createdAt)}`}
+                  ? t("reservations.queue", { position: r.position })
+                  : t("reservations.createdAt", {
+                      date: formatDate(r.createdAt),
+                    })}
             </p>
           </div>
           <div className="loan-actions">
@@ -231,18 +249,18 @@ function Reservations() {
                 loading={claim.isPending && claim.variables === r.bookId}
                 onClick={() => claim.mutate(r.bookId)}
               >
-                领取并借阅
+                {t("reservations.claim")}
               </Button>
             )}
             {["READY", "WAITING"].includes(r.status) && (
               <Popconfirm
-                title="取消这次预约？"
-                okText="取消预约"
-                cancelText="保留"
+                title={t("reservations.cancelConfirm")}
+                okText={t("reservations.cancel")}
+                cancelText={t("reservations.keep")}
                 onConfirm={() => cancel.mutateAsync(r.id).catch(() => {})}
               >
                 <Button loading={cancel.isPending && cancel.variables === r.id}>
-                  取消预约
+                  {t("reservations.cancel")}
                 </Button>
               </Popconfirm>
             )}

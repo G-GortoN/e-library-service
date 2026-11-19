@@ -9,14 +9,16 @@
     "typecheck": "tsc -b",
     "preview": "vite preview --host 127.0.0.1",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" vite.config.ts tsconfig.json package.json index.html",
-    "test": "node --experimental-strip-types --test src/api.test.ts"
+    "test": "node --experimental-strip-types --test src/*.test.ts"
   },
   "dependencies": {
     "@ant-design/icons": "6.3.4",
     "@tanstack/react-query": "5.107.1",
     "antd": "6.7.1",
+    "i18next": "27.1.5",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "react-i18next": "18.0.2",
     "react-router-dom": "7.18.5"
   },
   "devDependencies": {

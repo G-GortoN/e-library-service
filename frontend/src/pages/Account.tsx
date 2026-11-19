@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Alert,
   App,
@@ -20,11 +21,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { api, clearCsrf, errorMessage } from "../api";
 import { useAuth } from "../auth";
+import { useLocalizedValidation } from "../language";
 import {
   EmptyState,
   ErrorState,
   formatDate,
   LoadingState,
+  localizedNotification,
   money,
   PageHeading,
   StatusTag,
@@ -32,6 +35,7 @@ import {
 import type { Fine, Notification, User } from "../types";
 
 export function Notifications() {
+  const { t } = useTranslation("reader");
   const [onlyUnread, setOnlyUnread] = useState(false);
   const client = useQueryClient();
   const { message } = App.useApp();
@@ -47,16 +51,16 @@ export function Notifications() {
   return (
     <section className="standard-page">
       <PageHeading
-        eyebrow="LETTERS FROM THE LIBRARY"
-        title="你的阅读来信"
-        description="借期提醒、预约进展，还有图书馆为你留意的小事。"
+        eyebrow={t("notifications.eyebrow")}
+        title={t("notifications.title")}
+        description={t("notifications.description")}
       />
       <Tabs
         activeKey={onlyUnread ? "unread" : "all"}
         onChange={(v) => setOnlyUnread(v === "unread")}
         items={[
-          { key: "all", label: "全部消息" },
-          { key: "unread", label: "未读消息" },
+          { key: "all", label: t("notifications.all") },
+          { key: "unread", label: t("notifications.unread") },
         ]}
       />
       {data.isPending ? (
@@ -66,12 +70,14 @@ export function Notifications() {
       ) : (
         <List
           className="notification-list"
-          dataSource={data.data.filter((n) => !onlyUnread || !n.read)}
+          dataSource={data.data
+            .filter((n) => !onlyUnread || !n.read)
+            .map((n) => ({ ...n, ...localizedNotification(n) }))}
           locale={{
             emptyText: (
               <EmptyState
-                title="此刻，一切安静"
-                description="有新的借阅与预约进展时，消息会出现在这里。"
+                title={t("notifications.emptyTitle")}
+                description={t("notifications.emptyDescription")}
               />
             ),
           }}
@@ -87,7 +93,7 @@ export function Notifications() {
                         loading={read.isPending && read.variables === n.id}
                         onClick={() => read.mutate(n.id)}
                       >
-                        标为已读
+                        {t("notifications.markRead")}
                       </Button>,
                     ]
                   : []
@@ -119,6 +125,7 @@ export function Notifications() {
 }
 
 export function Fines() {
+  const { t } = useTranslation("reader");
   const data = useQuery({
     queryKey: ["fines"],
     queryFn: () => api.get<Fine[]>("/me/fines"),
@@ -133,23 +140,25 @@ export function Fines() {
   return (
     <section className="standard-page">
       <PageHeading
-        eyebrow="READING ACCOUNT"
-        title="借阅账单"
-        description="每一笔金额都有清楚的来由。这里的账单仅用于演示，不发生真实扣款。"
+        eyebrow={t("fines.eyebrow")}
+        title={t("fines.title")}
+        description={t("fines.description")}
       />
       <div className="balance-card">
         <div>
-          <p>当前待处理 · 演示金额</p>
+          <p>{t("fines.balance")}</p>
           <strong>{money(outstanding)}</strong>
         </div>
         <SafetyCertificateOutlined />
-        <small>逾期满 24 小时计 ¥0.10，每笔最高 ¥10.00；归还时冻结金额。</small>
+        <small>
+          {t("fines.policy", { rate: money(10), cap: money(1000) })}
+        </small>
       </div>
       <Alert
         type="info"
         showIcon
-        title="演示记账，无在线支付"
-        description="如有疑问，请由管理员核对账单并记录减免或演示结清。"
+        title={t("fines.alertTitle")}
+        description={t("fines.alertDescription")}
       />
       {data.isPending ? (
         <LoadingState />
@@ -162,8 +171,8 @@ export function Fines() {
           locale={{
             emptyText: (
               <EmptyState
-                title="账单空空，阅读轻松"
-                description="按时归还，一起让好书流动起来。"
+                title={t("fines.emptyTitle")}
+                description={t("fines.emptyDescription")}
               />
             ),
           }}
@@ -183,8 +192,11 @@ export function Fines() {
                 }
                 description={
                   <span>
-                    {formatDate(fine.createdAt)} · 原金额{" "}
-                    {money(fine.amountMinor)} · 已减免 {money(fine.waivedMinor)}
+                    {t("fines.itemDescription", {
+                      date: formatDate(fine.createdAt),
+                      original: money(fine.amountMinor),
+                      waived: money(fine.waivedMinor),
+                    })}
                   </span>
                 }
               />
@@ -197,17 +209,21 @@ export function Fines() {
 }
 
 export function Profile() {
+  const { t } = useTranslation("reader");
   const { user } = useAuth();
   const client = useQueryClient();
   const { message } = App.useApp();
   const navigate = useNavigate();
+  const [profileForm] = Form.useForm();
   const [passwordForm] = Form.useForm();
+  useLocalizedValidation(profileForm);
+  useLocalizedValidation(passwordForm);
   const save = useMutation({
     mutationFn: (values: { displayName: string }) =>
       api.patch<User>("/me", values),
     onSuccess: (updated) => {
       client.setQueryData(["me"], updated);
-      message.success("资料已更新。");
+      message.success(t("profile.saveSuccess"));
     },
     onError: (e) => message.error(errorMessage(e)),
   });
@@ -218,7 +234,7 @@ export function Profile() {
       clearCsrf();
       client.setQueryData(["me"], null);
       passwordForm.resetFields();
-      message.success("密码已更新，请重新登录。");
+      message.success(t("profile.passwordSuccess"));
       navigate("/login");
     },
     onError: (e) => message.error(errorMessage(e)),
@@ -226,46 +242,57 @@ export function Profile() {
   return (
     <section className="standard-page profile-page">
       <PageHeading
-        eyebrow="A LITTLE ABOUT YOU"
-        title="账号与设置"
-        description="照顾好你的阅读空间，也保护好你的账号。"
+        eyebrow={t("profile.eyebrow")}
+        title={t("profile.title")}
+        description={t("profile.description")}
       />
       <div className="profile-grid">
-        <Card title="个人资料">
+        <Card title={t("profile.personal")}>
           <div className="profile-avatar">
-            {user?.displayName?.slice(0, 1) || "读"}
+            {user?.displayName?.slice(0, 1) || t("profile.avatarFallback")}
           </div>
           <Form
+            form={profileForm}
             layout="vertical"
             initialValues={{ displayName: user?.displayName }}
             onFinish={(values) => save.mutate(values)}
           >
             <Form.Item
               name="displayName"
-              label="你的称呼"
+              label={t("profile.displayName")}
               rules={[
-                { required: true, whitespace: true, message: "请输入称呼" },
-                { max: 80, message: "称呼不超过80位" },
+                {
+                  required: true,
+                  whitespace: true,
+                  message: t("profile.displayNameRequired"),
+                },
+                { max: 80, message: t("profile.displayNameMax") },
               ]}
             >
               <Input autoComplete="nickname" />
             </Form.Item>
-            <Form.Item label="邮箱地址">
+            <Form.Item label={t("profile.email")}>
               <Input value={user?.email} disabled />
             </Form.Item>
             <p>
               <Tag color={user?.emailVerified ? "green" : "gold"}>
-                {user?.emailVerified ? "邮箱已验证" : "邮箱尚未验证"}
+                {user?.emailVerified
+                  ? t("profile.verified")
+                  : t("profile.unverified")}
               </Tag>
-              <Tag>{user?.role === "ADMIN" ? "管理员" : "读者"}</Tag>
+              <Tag>
+                {user?.role === "ADMIN"
+                  ? t("profile.admin")
+                  : t("profile.reader")}
+              </Tag>
             </p>
             <Button type="primary" htmlType="submit" loading={save.isPending}>
-              保存资料
+              {t("profile.save")}
             </Button>
           </Form>
         </Card>
-        <Card title="修改密码">
-          <p className="muted">修改后，现有登录会话将失效。</p>
+        <Card title={t("profile.changePassword")}>
+          <p className="muted">{t("profile.passwordHint")}</p>
           <Form
             form={passwordForm}
             layout="vertical"
@@ -273,21 +300,25 @@ export function Profile() {
           >
             <Form.Item
               name="currentPassword"
-              label="当前密码"
-              rules={[{ required: true, message: "请输入当前密码" }]}
+              label={t("profile.currentPassword")}
+              rules={[
+                {
+                  required: true,
+                  message: t("profile.currentPasswordRequired"),
+                },
+              ]}
             >
               <Input.Password autoComplete="current-password" />
             </Form.Item>
             <Form.Item
               name="newPassword"
-              label="新密码"
+              label={t("profile.newPassword")}
               rules={[
-                { required: true, message: "请输入新密码" },
+                { required: true, message: t("profile.newPasswordRequired") },
                 {
                   min: 10,
                   max: 72,
-                  message:
-                    "新密码至少10位，最多72位（非ASCII字符另受字节限制）",
+                  message: t("profile.passwordLength"),
                 },
               ]}
             >
@@ -295,28 +326,35 @@ export function Profile() {
             </Form.Item>
             <Form.Item
               name="confirm"
-              label="确认新密码"
+              label={t("profile.confirmPassword")}
               dependencies={["newPassword"]}
               rules={[
-                { required: true, message: "请确认新密码" },
+                {
+                  required: true,
+                  message: t("profile.confirmPasswordRequired"),
+                },
                 ({ getFieldValue }) => ({
                   validator: (_, value) =>
                     !value || getFieldValue("newPassword") === value
                       ? Promise.resolve()
-                      : Promise.reject(new Error("两次密码不一致")),
+                      : Promise.reject(
+                          new Error(t("profile.passwordMismatch")),
+                        ),
                 }),
               ]}
             >
               <Input.Password autoComplete="new-password" />
             </Form.Item>
             <Popconfirm
-              title="确认修改密码？"
-              description="修改后需要重新登录。"
-              okText="确认"
-              cancelText="取消"
+              title={t("profile.passwordConfirm")}
+              description={t("profile.passwordConfirmDescription")}
+              okText={t("profile.confirm")}
+              cancelText={t("profile.cancel")}
               onConfirm={() => passwordForm.submit()}
             >
-              <Button loading={password.isPending}>更新密码</Button>
+              <Button loading={password.isPending}>
+                {t("profile.updatePassword")}
+              </Button>
             </Popconfirm>
           </Form>
         </Card>

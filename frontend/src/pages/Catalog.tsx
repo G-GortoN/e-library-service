@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Link,
@@ -28,6 +29,7 @@ import {
 import type { Book, Loan, Page, Reservation } from "../types";
 
 export default function Catalog() {
+  const { t } = useTranslation("reader");
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const [input, setInput] = useState(params.get("q") || "");
@@ -72,26 +74,27 @@ export default function Catalog() {
         <section className="reading-hero">
           <div className="hero-copy">
             <p className="eyebrow">
-              <span className="tiny-star">✳</span> A LITTLE SPACE FOR BIG IDEAS
+              <span className="tiny-star">✳</span> {t("hero.eyebrow")}
             </p>
             <h1>
-              把世界
+              {t("hero.titleFirst")}
               <br />
-              翻开<span>一页。</span>
+              {t("hero.titleSecond")}
+              <span>{t("hero.titleAccent")}</span>
             </h1>
             <p>
-              在日常的空隙，遇见下一本好书。
+              {t("hero.introFirst")}
               <br />
-              一座随时为你打开的数字图书馆。
+              {t("hero.introSecond")}
             </p>
             <a href="#catalog" className="hero-link">
-              找到下一本好书 <ArrowRightOutlined />
+              {t("hero.discover")} <ArrowRightOutlined />
             </a>
             <div className="hero-footnote">
-              <span className="hero-rule" /> 阅读，让平凡的日子有了远方
+              <span className="hero-rule" /> {t("hero.footnote")}
             </div>
           </div>
-          <div className="hero-shelf" aria-label="本期推荐书籍">
+          <div className="hero-shelf" aria-label={t("hero.shelfAria")}>
             {featured.length > 0 ? (
               featured.map((book, index) => (
                 <Link
@@ -105,27 +108,31 @@ export default function Catalog() {
               ))
             ) : (
               <div className="hero-lettering" aria-hidden="true">
-                <span>READ</span>
-                <span>MORE.</span>
-                <i>stay curious</i>
+                <span>{t("hero.read")}</span>
+                <span>{t("hero.more")}</span>
+                <i>{t("hero.curious")}</i>
               </div>
             )}
             <div className="hero-orbit" />
-            <span className="hero-shelf-note">THE ART OF SLOW READING</span>
+            <span className="hero-shelf-note">{t("hero.shelfNote")}</span>
           </div>
           <span className="hero-index" aria-hidden="true">
-            01 — FOLIO JOURNAL
+            {t("hero.index")}
           </span>
         </section>
       )}
       <section className="catalog-section" id="catalog">
         <PageHeading
-          eyebrow="THE COLLECTION"
-          title={q ? `寻找「${q}」` : "总有一本，正合心意"}
-          description="从熟悉的领域出发，也向未曾抵达的世界走近。"
+          eyebrow={t("catalog.eyebrow")}
+          title={
+            q ? t("catalog.searchTitle", { query: q }) : t("catalog.title")
+          }
+          description={t("catalog.description")}
           extra={
             <span className="collection-count">
-              {books.data ? `${books.data.total} 本藏书` : "探索馆藏"}{" "}
+              {books.data
+                ? t("catalog.bookCount", { count: books.data.total })
+                : t("catalog.explore")}{" "}
               <ReadOutlined />
             </span>
           }
@@ -133,13 +140,14 @@ export default function Catalog() {
         <div className="catalog-layout">
           <aside className="catalog-sidebar">
             <p className="filter-label">
-              书籍分类 <span>CATEGORIES</span>
+              {t("catalog.categories")}{" "}
+              <span>{t("catalog.categoriesCaption")}</span>
             </p>
             <button
               className={`category-item ${!category ? "active" : ""}`}
               onClick={() => setFilter("category", "")}
             >
-              全部藏书 <ArrowRightOutlined />
+              {t("catalog.allBooks")} <ArrowRightOutlined />
             </button>
             {categories.data?.map((c) => (
               <button
@@ -152,7 +160,9 @@ export default function Catalog() {
               </button>
             ))}
             {categories.isError && (
-              <p className="muted small-text">分类暂时不可用</p>
+              <p className="muted small-text">
+                {t("catalog.categoriesUnavailable")}
+              </p>
             )}
             <div className="sidebar-divider" />
             <Checkbox
@@ -161,16 +171,16 @@ export default function Catalog() {
                 setFilter("availableOnly", e.target.checked ? "true" : "")
               }
             >
-              只看可借阅
+              {t("catalog.availableOnly")}
             </Checkbox>
             <div className="reading-note">
               <span>“</span>
               <p>
-                阅读，是随身携带的
+                {t("catalog.quoteFirst")}
                 <br />
-                一座避难所。
+                {t("catalog.quoteSecond")}
               </p>
-              <small>给自己留一点翻页的时间</small>
+              <small>{t("catalog.quoteNote")}</small>
             </div>
           </aside>
           <div className="catalog-main">
@@ -179,17 +189,17 @@ export default function Catalog() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onSearch={(value) => setFilter("q", value.trim())}
-                placeholder="搜索书名、作者…"
+                placeholder={t("catalog.searchPlaceholder")}
                 allowClear
                 prefix={<SearchOutlined />}
-                aria-label="搜索书籍"
-                enterButton="搜索"
+                aria-label={t("catalog.searchAria")}
+                enterButton={t("catalog.search")}
               />
-              <span className="sort-caption">精选排序 · 发现好书</span>
+              <span className="sort-caption">{t("catalog.sortCaption")}</span>
             </div>
             {(category || q || availableOnly) && (
               <div className="active-filters">
-                当前筛选{" "}
+                {t("catalog.activeFilters")}{" "}
                 {category && (
                   <Tag closable onClose={() => setFilter("category", "")}>
                     {category}
@@ -208,7 +218,7 @@ export default function Catalog() {
                 )}
                 {availableOnly && (
                   <Tag closable onClose={() => setFilter("availableOnly", "")}>
-                    可借阅
+                    {t("catalog.available")}
                   </Tag>
                 )}
                 <button
@@ -218,7 +228,7 @@ export default function Catalog() {
                     setInput("");
                   }}
                 >
-                  清空筛选
+                  {t("catalog.clearFilters")}
                 </button>
               </div>
             )}
@@ -228,8 +238,8 @@ export default function Catalog() {
               <ErrorState error={books.error} retry={() => books.refetch()} />
             ) : books.data.items.length === 0 ? (
               <EmptyState
-                title="还没有找到这本书"
-                description="试试其他关键词，或放宽筛选条件。"
+                title={t("catalog.emptyTitle")}
+                description={t("catalog.emptyDescription")}
                 action={
                   <Button
                     onClick={() => {
@@ -237,7 +247,7 @@ export default function Catalog() {
                       setInput("");
                     }}
                   >
-                    查看全部藏书
+                    {t("catalog.viewAll")}
                   </Button>
                 }
               />
@@ -249,7 +259,7 @@ export default function Catalog() {
                   ))}
                 </div>
                 <div className="pagination-row">
-                  <span className="muted">每一次翻页，都是新的相遇</span>
+                  <span className="muted">{t("catalog.paginationNote")}</span>
                   <Pagination
                     current={page + 1}
                     pageSize={12}
@@ -274,12 +284,12 @@ export default function Catalog() {
       {isHome && recommendations.data && recommendations.data.length > 0 && (
         <section className="recommend-section">
           <PageHeading
-            eyebrow="PICKED FOR YOU"
-            title="下一页的灵感"
-            description="从阅读偏好与馆藏热度，发现值得停留的故事。"
+            eyebrow={t("recommend.eyebrow")}
+            title={t("recommend.title")}
+            description={t("recommend.description")}
             extra={
               <Link className="text-link" to="/books">
-                浏览全部 <ArrowRightOutlined />
+                {t("recommend.browseAll")} <ArrowRightOutlined />
               </Link>
             }
           />
@@ -294,11 +304,11 @@ export default function Catalog() {
         <section className="manifesto">
           <span className="tiny-star">✳</span>
           <p>
-            不必匆忙读完世界。
+            {t("manifesto.first")}
             <br />
-            <em>从你喜欢的一页开始。</em>
+            <em>{t("manifesto.second")}</em>
           </p>
-          <span>YOUR NEXT CHAPTER STARTS HERE</span>
+          <span>{t("manifesto.caption")}</span>
         </section>
       )}
     </>
@@ -306,6 +316,7 @@ export default function Catalog() {
 }
 
 export function BookDetail() {
+  const { t } = useTranslation("reader");
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -318,7 +329,7 @@ export function BookDetail() {
   const borrow = useMutation({
     mutationFn: () => api.post<Loan>("/loans", { bookId: Number(id) }),
     onSuccess: () => {
-      message.success("已放入你的书架，愿这段阅读时光愉快。");
+      message.success(t("detail.borrowSuccess"));
       client.invalidateQueries();
       navigate("/shelf");
     },
@@ -331,7 +342,7 @@ export function BookDetail() {
     mutationFn: () =>
       api.post<Reservation>("/reservations", { bookId: Number(id) }),
     onSuccess: () => {
-      message.success("预约成功，轮到你时我们会通知你。");
+      message.success(t("detail.reserveSuccess"));
       client.invalidateQueries();
       navigate("/shelf?tab=reservations");
     },
@@ -341,7 +352,7 @@ export function BookDetail() {
   if (book.isError)
     return (
       <ErrorState
-        title="无法打开这本书"
+        title={t("detail.errorTitle")}
         error={book.error}
         retry={() => book.refetch()}
       />
@@ -359,35 +370,37 @@ export function BookDetail() {
   return (
     <section className="detail-page">
       <Link className="back-link" to="/books">
-        <ArrowLeftOutlined /> 返回馆藏
+        <ArrowLeftOutlined /> {t("detail.back")}
       </Link>
       <div className="book-detail-grid">
         <div className="detail-cover-stage">
           <BookCover book={b} />
-          <span className="detail-cover-caption">FOLIO LIBRARY · 精选馆藏</span>
+          <span className="detail-cover-caption">
+            {t("detail.coverCaption")}
+          </span>
         </div>
         <div className="book-detail-copy">
-          <p className="eyebrow">{b.category || "FOLIO COLLECTION"}</p>
+          <p className="eyebrow">{b.category || t("detail.collection")}</p>
           <h1>{b.title}</h1>
           <p className="detail-author">
-            {b.author} <span>著</span>
+            {b.author} <span>{t("detail.authorSuffix")}</span>
           </p>
           <div className="detail-description">
-            <h2>关于这本书</h2>
-            <p>{b.description || "关于书页之间的世界，留给你慢慢发现。"}</p>
+            <h2>{t("detail.about")}</h2>
+            <p>{b.description || t("detail.descriptionFallback")}</p>
           </div>
           <dl className="book-facts">
             <div>
-              <dt>分类</dt>
-              <dd>{b.category || "综合"}</dd>
+              <dt>{t("detail.category")}</dt>
+              <dd>{b.category || t("detail.generalCategory")}</dd>
             </div>
             <div>
-              <dt>ISBN</dt>
-              <dd>{b.isbn || "未提供"}</dd>
+              <dt>{t("detail.isbn")}</dt>
+              <dd>{b.isbn || t("detail.notProvided")}</dd>
             </div>
             <div>
-              <dt>借阅次数</dt>
-              <dd>{b.borrowCount || 0} 次</dd>
+              <dt>{t("detail.borrowCountLabel")}</dt>
+              <dd>{t("detail.borrowCount", { count: b.borrowCount || 0 })}</dd>
             </div>
           </dl>
           <div className="borrow-panel">
@@ -396,22 +409,22 @@ export function BookDetail() {
                 className={`availability ${b.available ? "" : "unavailable"}`}
               >
                 {!published
-                  ? "该书当前未上架"
+                  ? t("detail.unpublished")
                   : b.available
-                    ? "当前可以借阅"
-                    : "当前借阅授权已占用"}
+                    ? t("detail.available")
+                    : t("detail.unavailable")}
               </span>
               <p>
                 {!published
-                  ? "已有借阅仍可归还，暂停新增借阅与预约"
+                  ? t("detail.unpublishedHint")
                   : b.available
-                    ? "借期 14 天 · 符合条件可续借一次"
-                    : "加入预约队列，轮到你时保留 48 小时"}
+                    ? t("detail.availableHint")
+                    : t("detail.unavailableHint")}
               </p>
             </div>
             {!published ? (
               <Link to="/shelf">
-                <Button>前往我的书架</Button>
+                <Button>{t("detail.goToShelf")}</Button>
               </Link>
             ) : (
               <Button
@@ -422,16 +435,14 @@ export function BookDetail() {
                 onClick={act}
               >
                 {!user
-                  ? "登录后借阅"
+                  ? t("detail.loginToBorrow")
                   : b.available
-                    ? "借阅这本书"
-                    : "预约这本书"}
+                    ? t("detail.borrow")
+                    : t("detail.reserve")}
               </Button>
             )}
           </div>
-          <p className="detail-notice">
-            这是数字书目与借阅服务，目前不提供正文在线阅读。
-          </p>
+          <p className="detail-notice">{t("detail.notice")}</p>
         </div>
       </div>
     </section>

@@ -1,4 +1,8 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
+import { LanguageSwitcher, useLocalizedValidation } from "../language";
+import { localizeText } from "../i18n";
 import {
   App,
   Alert,
@@ -60,31 +64,45 @@ import type {
   User,
 } from "../types";
 
-const adminReaderColumn = {
-  title: "读者",
-  key: "reader",
-  width: 220,
-  render: (_: unknown, reader: AdminReaderInfo) => (
-    <div className="admin-reader-cell">
-      <strong>
-        {reader.readerName ||
-          (reader.readerId ? `读者 #${reader.readerId}` : "未提供")}
-      </strong>
-      {reader.readerEmail && <small>{reader.readerEmail}</small>}
-    </div>
-  ),
-};
+function adminReaderColumn(t: TFunction<"admin">) {
+  return {
+    title: t("reader"),
+    key: "reader",
+    width: 220,
+    render: (_: unknown, reader: AdminReaderInfo) => (
+      <div className="admin-reader-cell">
+        <strong>
+          {reader.readerName ||
+            (reader.readerId
+              ? t("reader.id", { id: reader.readerId })
+              : t("notProvided"))}
+        </strong>
+        {reader.readerEmail && <small>{reader.readerEmail}</small>}
+      </div>
+    ),
+  };
+}
 
-const nav = [
-  { to: "/admin", label: "运营概览", icon: <DashboardOutlined />, end: true },
-  { to: "/admin/books", label: "书籍管理", icon: <BookOutlined /> },
-  { to: "/admin/users", label: "账号管理", icon: <TeamOutlined /> },
-  { to: "/admin/loans", label: "借阅记录", icon: <ReadOutlined /> },
-  { to: "/admin/reservations", label: "预约队列", icon: <InboxOutlined /> },
-  { to: "/admin/fines", label: "演示账单", icon: <WalletOutlined /> },
-  { to: "/admin/audit", label: "操作审计", icon: <AuditOutlined /> },
-];
 export default function Admin() {
+  const { t } = useTranslation("admin");
+  const nav = [
+    {
+      to: "/admin",
+      label: t("nav.overview"),
+      icon: <DashboardOutlined />,
+      end: true,
+    },
+    { to: "/admin/books", label: t("nav.books"), icon: <BookOutlined /> },
+    { to: "/admin/users", label: t("nav.users"), icon: <TeamOutlined /> },
+    { to: "/admin/loans", label: t("nav.loans"), icon: <ReadOutlined /> },
+    {
+      to: "/admin/reservations",
+      label: t("nav.reservations"),
+      icon: <InboxOutlined />,
+    },
+    { to: "/admin/fines", label: t("nav.fines"), icon: <WalletOutlined /> },
+    { to: "/admin/audit", label: t("nav.audit"), icon: <AuditOutlined /> },
+  ];
   const { user } = useAuth();
   return (
     <div className="admin-shell">
@@ -94,11 +112,12 @@ export default function Admin() {
             <BookOutlined />
           </span>
           <strong>
-            栖页<span>FOLIO</span>
+            {t("brand.name")}
+            <span>{t("brand.subtitle")}</span>
           </strong>
         </Link>
-        <p className="admin-sidebar-label">LIBRARY WORKSPACE</p>
-        <nav aria-label="管理后台">
+        <p className="admin-sidebar-label">{t("workspace.eyebrow")}</p>
+        <nav aria-label={t("nav.label")}>
           {nav.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.end}>
               {n.icon}
@@ -111,20 +130,26 @@ export default function Admin() {
             <span>{user?.displayName.slice(0, 1)}</span>
             <div>
               <strong>{user?.displayName}</strong>
-              <small>图书馆管理员</small>
+              <small>{t("workspace.role")}</small>
             </div>
           </div>
           <Link to="/books">
-            <LogoutOutlined /> 返回读者端
+            <LogoutOutlined />
+            {t("workspace.return")}
           </Link>
         </div>
       </aside>
       <div className="admin-main">
         <header className="admin-topbar">
           <span>
-            栖页管理工作台 <i>/</i> 让好书有序流动
+            {t("workspace.title")}
+            <i>/</i>
+            {t("workspace.tagline")}
           </span>
-          <Tag color="green">管理访问</Tag>
+          <Space>
+            <LanguageSwitcher />
+            <Tag color="green">{t("workspace.access")}</Tag>
+          </Space>
         </header>
         <div className="admin-content">
           <Routes>
@@ -139,16 +164,14 @@ export default function Admin() {
               path="*"
               element={
                 <ErrorState
-                  title="管理页面不存在"
-                  description="请通过左侧导航访问管理功能。"
+                  title={t("workspace.notFound")}
+                  description={t("workspace.notFoundHint")}
                 />
               }
             />
           </Routes>
         </div>
-        <footer className="admin-footer">
-          FOLIO LIBRARY · 每一个有序的细节，都为了更好的阅读。
-        </footer>
+        <footer className="admin-footer">{t("workspace.footer")}</footer>
       </div>
     </div>
   );
@@ -187,6 +210,7 @@ function AdminListError({
   ) : null;
 }
 function Overview() {
+  const { t } = useTranslation("admin");
   const stats = useQuery({
     queryKey: ["admin", "stats"],
     queryFn: () => api.get<Stats>("/admin/stats"),
@@ -199,21 +223,26 @@ function Overview() {
   if (stats.isError)
     return <ErrorState error={stats.error} retry={() => stats.refetch()} />;
   const items = [
-    ["馆藏图书", stats.data.books, "CATALOG", <BookOutlined />],
-    ["注册读者", stats.data.users, "READERS", <TeamOutlined />],
-    ["正在借阅", stats.data.activeLoans, "ON LOAN", <ReadOutlined />],
-    ["逾期借阅", stats.data.overdueLoans, "OVERDUE", <InboxOutlined />],
+    [t("overview.books"), stats.data.books, "CATALOG", <BookOutlined />],
+    [t("overview.readers"), stats.data.users, "READERS", <TeamOutlined />],
+    [t("overview.loans"), stats.data.activeLoans, "ON LOAN", <ReadOutlined />],
+    [
+      t("overview.overdue"),
+      stats.data.overdueLoans,
+      "OVERDUE",
+      <InboxOutlined />,
+    ],
   ];
   return (
     <>
       <PageHeading
-        eyebrow="A WELL-KEPT LIBRARY"
-        title="每一次借阅，都值得被照顾"
-        description="从馆藏到读者，在这里掌握图书馆的日常。"
+        eyebrow={t("overview.eyebrow")}
+        title={t("overview.title")}
+        description={t("overview.description")}
         extra={
           <Link to="/admin/books">
             <Button type="primary" icon={<PlusOutlined />}>
-              管理馆藏
+              {t("overview.manage")}
             </Button>
           </Link>
         }
@@ -232,8 +261,8 @@ function Overview() {
       </div>
       <div className="admin-overview-grid">
         <Card
-          title="最近借阅"
-          extra={<Link to="/admin/loans">全部记录 →</Link>}
+          title={t("overview.recent")}
+          extra={<Link to="/admin/loans">{t("overview.all")}</Link>}
         >
           {loans.isError ? (
             <ErrorState error={loans.error} retry={() => loans.refetch()} />
@@ -245,15 +274,15 @@ function Overview() {
               size="small"
               dataSource={loans.data?.items}
               columns={[
-                adminReaderColumn,
-                { title: "书籍", dataIndex: "title" },
+                adminReaderColumn(t),
+                { title: t("column.book"), dataIndex: "title" },
                 {
-                  title: "借阅时间",
+                  title: t("column.borrowedAt"),
                   dataIndex: "borrowedAt",
                   render: (v) => formatDate(v),
                 },
                 {
-                  title: "到期时间",
+                  title: t("column.dueAt"),
                   dataIndex: "dueAt",
                   render: (v) => formatDate(v),
                 },
@@ -263,23 +292,23 @@ function Overview() {
           )}
         </Card>
         <Card className="overview-note">
-          <p className="eyebrow">IN THE LIBRARY</p>
+          <p className="eyebrow">{t("overview.noteEyebrow")}</p>
           <h2>
-            有序流动，
+            {t("overview.noteLine1")}
             <br />
-            静心阅读。
+            {t("overview.noteLine2")}
           </h2>
           <dl>
             <div>
-              <dt>当前预约</dt>
+              <dt>{t("overview.reservations")}</dt>
               <dd>{stats.data.reservations}</dd>
             </div>
             <div>
-              <dt>待处理演示金额</dt>
+              <dt>{t("overview.balance")}</dt>
               <dd>{money(stats.data.outstandingFineMinor)}</dd>
             </div>
           </dl>
-          <p>所有管理修改都会留下审计记录。账单为演示记账，不产生真实收费。</p>
+          <p>{t("overview.auditHint")}</p>
         </Card>
       </div>
     </>
@@ -287,6 +316,7 @@ function Overview() {
 }
 
 function BooksAdmin() {
+  const { t } = useTranslation("admin");
   const [search, setSearch] = useState("");
   const { result, pagination } = useAdminList<Book>("books", search);
   const client = useQueryClient();
@@ -294,6 +324,7 @@ function BooksAdmin() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Book | null>(null);
   const [form] = Form.useForm();
+  useLocalizedValidation(form);
   const [importOpen, setImportOpen] = useState(false);
   const refresh = () => {
     client.invalidateQueries();
@@ -304,7 +335,7 @@ function BooksAdmin() {
         ? api.patch<Book>(`/admin/books/${editing.id}`, values)
         : api.post<Book>("/admin/books", values),
     onSuccess: () => {
-      message.success("书籍信息已保存。");
+      message.success(t("books.saved"));
       setOpen(false);
       refresh();
     },
@@ -314,7 +345,7 @@ function BooksAdmin() {
     mutationFn: ({ book, status }: { book: Book; status: BookStatus }) =>
       api.put(`/admin/books/${book.id}/status`, { status }),
     onSuccess: () => {
-      message.success("上架状态已更新。");
+      message.success(t("books.statusSaved"));
       refresh();
     },
     onError: (e) => message.error(errorMessage(e)),
@@ -323,7 +354,7 @@ function BooksAdmin() {
     mutationFn: (file: File) =>
       api.upload<Book>(`/admin/books/${editing?.id}/cover`, file),
     onSuccess: (book) => {
-      message.success("封面已更新。");
+      message.success(t("books.coverSaved"));
       setEditing(book);
       refresh();
     },
@@ -337,7 +368,7 @@ function BooksAdmin() {
   };
   const columns: ColumnsType<Book> = [
     {
-      title: "书籍",
+      title: t("column.book"),
       dataIndex: "title",
       width: 270,
       render: (_, b) => (
@@ -350,31 +381,39 @@ function BooksAdmin() {
         </div>
       ),
     },
-    { title: "分类", dataIndex: "category" },
+    { title: t("column.category"), dataIndex: "category" },
     {
-      title: "状态",
+      title: t("column.status"),
       dataIndex: "status",
       render: (v) => <StatusTag value={v} />,
     },
-    { title: "借阅", dataIndex: "borrowCount", render: (v) => `${v || 0} 次` },
     {
-      title: "操作",
+      title: t("column.borrowCount"),
+      dataIndex: "borrowCount",
+      render: (v) => t("count.times", { count: v || 0 }),
+    },
+    {
+      title: t("column.actions"),
       key: "actions",
       width: 270,
       render: (_, b) => (
         <Space wrap>
           <Button size="small" icon={<EditOutlined />} onClick={() => edit(b)}>
-            编辑
+            {t("action.edit")}
           </Button>
           <Popconfirm
-            title={b.status === "PUBLISHED" ? "确认下架？" : "确认上架？"}
+            title={
+              b.status === "PUBLISHED"
+                ? t("books.unpublishConfirm")
+                : t("books.publishConfirm")
+            }
             description={
               b.status === "PUBLISHED"
-                ? "下架将取消有效预约；既有借阅和历史保留。"
-                : "上架后读者可浏览、借阅和预约。"
+                ? t("books.unpublishHint")
+                : t("books.publishHint")
             }
-            okText="确认"
-            cancelText="取消"
+            okText={t("action.confirm")}
+            cancelText={t("action.cancel")}
             onConfirm={() =>
               status
                 .mutateAsync({
@@ -389,15 +428,17 @@ function BooksAdmin() {
               size="small"
               loading={status.isPending && status.variables?.book.id === b.id}
             >
-              {b.status === "PUBLISHED" ? "下架" : "上架"}
+              {b.status === "PUBLISHED"
+                ? t("books.unpublish")
+                : t("books.publish")}
             </Button>
           </Popconfirm>
           {b.status !== "ARCHIVED" && (
             <Popconfirm
-              title="确认归档？"
-              description="归档保留历史，停止新借阅与预约。"
-              okText="归档"
-              cancelText="取消"
+              title={t("books.archiveConfirm")}
+              description={t("books.archiveHint")}
+              okText={t("action.archive")}
+              cancelText={t("action.cancel")}
               onConfirm={() =>
                 status
                   .mutateAsync({ book: b, status: "ARCHIVED" })
@@ -405,7 +446,7 @@ function BooksAdmin() {
               }
             >
               <Button size="small" type="text">
-                归档
+                {t("action.archive")}
               </Button>
             </Popconfirm>
           )}
@@ -416,23 +457,23 @@ function BooksAdmin() {
   return (
     <>
       <PageHeading
-        eyebrow="CATALOG MANAGEMENT"
-        title="书籍管理"
-        description="维护每一本书的信息，让值得阅读的内容被看见。"
+        eyebrow={t("books.eyebrow")}
+        title={t("nav.books")}
+        description={t("books.description")}
         extra={
           <Space>
             <Button
               icon={<UploadOutlined />}
               onClick={() => setImportOpen(true)}
             >
-              导入书目
+              {t("books.import")}
             </Button>
             <Button
               type="primary"
               icon={<PlusOutlined />}
               onClick={() => edit(null)}
             >
-              新增书籍
+              {t("books.add")}
             </Button>
           </Space>
         }
@@ -440,14 +481,14 @@ function BooksAdmin() {
       <Card className="admin-table-card">
         <div className="admin-toolbar">
           <Input.Search
-            placeholder="搜索书名、作者"
+            placeholder={t("books.search")}
             onSearch={setSearch}
             allowClear
             style={{ maxWidth: 360 }}
-            enterButton="搜索"
+            enterButton={t("action.search")}
           />
           <span className="muted">
-            {result.data?.total ?? "—"} 本馆藏 · 包含草稿与下架
+            {t("books.total", { count: result.data?.total ?? 0 })}
           </span>
         </div>
         <AdminListError result={result} />
@@ -465,7 +506,7 @@ function BooksAdmin() {
       <Drawer
         open={open}
         onClose={() => setOpen(false)}
-        title={editing ? "编辑书籍" : "新增书籍"}
+        title={editing ? t("books.edit") : t("books.add")}
         size="large"
         extra={
           <Button
@@ -473,7 +514,7 @@ function BooksAdmin() {
             onClick={() => form.submit()}
             loading={save.isPending}
           >
-            保存
+            {t("action.save")}
           </Button>
         }
       >
@@ -484,39 +525,51 @@ function BooksAdmin() {
         >
           <Form.Item
             name="title"
-            label="书名"
+            label={t("books.title")}
             rules={[
-              { required: true, whitespace: true, message: "请输入书名" },
-              { max: 200, message: "书名不超过200位" },
+              {
+                required: true,
+                whitespace: true,
+                message: t("books.titleRequired"),
+              },
+              { max: 200, message: t("books.titleLimit") },
             ]}
           >
             <Input />
           </Form.Item>
           <Form.Item
             name="author"
-            label="作者"
+            label={t("books.author")}
             rules={[
-              { required: true, whitespace: true, message: "请输入作者" },
+              {
+                required: true,
+                whitespace: true,
+                message: t("books.authorRequired"),
+              },
             ]}
           >
             <Input />
           </Form.Item>
           <Form.Item
             name="category"
-            label="分类"
+            label={t("column.category")}
             rules={[
-              { required: true, whitespace: true, message: "请输入分类" },
+              {
+                required: true,
+                whitespace: true,
+                message: t("books.categoryRequired"),
+              },
             ]}
           >
-            <Input placeholder="例如：文学、科技、人文" />
+            <Input placeholder={t("books.categoryPlaceholder")} />
           </Form.Item>
           <Form.Item name="isbn" label="ISBN">
             <Input />
           </Form.Item>
           <Form.Item
             name="description"
-            label="内容简介"
-            rules={[{ max: 6000, message: "内容简介不能超过6000位" }]}
+            label={t("books.descriptionLabel")}
+            rules={[{ max: 6000, message: t("books.descriptionLimit") }]}
           >
             <Input.TextArea rows={6} maxLength={6000} showCount />
           </Form.Item>
@@ -525,14 +578,14 @@ function BooksAdmin() {
           <div className="cover-upload-panel">
             <BookCover book={editing} small />
             <div>
-              <h3>书籍封面</h3>
-              <p className="muted">JPEG、PNG，最大 5 MB。</p>
+              <h3>{t("books.cover")}</h3>
+              <p className="muted">{t("books.coverFormats")}</p>
               <Upload
                 accept="image/jpeg,image/png"
                 showUploadList={false}
                 beforeUpload={(file) => {
                   if (file.size > 5 * 1024 * 1024) {
-                    message.error("封面不能超过5MB");
+                    message.error(t("books.coverLimit"));
                     return false;
                   }
                   upload.mutate(file);
@@ -540,13 +593,13 @@ function BooksAdmin() {
                 }}
               >
                 <Button icon={<UploadOutlined />} loading={upload.isPending}>
-                  上传封面
+                  {t("books.coverUpload")}
                 </Button>
               </Upload>
             </div>
           </div>
         ) : (
-          <Alert type="info" title="新书保存为草稿后，可以上传封面并上架。" />
+          <Alert type="info" title={t("books.draftHint")} />
         )}
       </Drawer>
       <BookImport open={importOpen} close={() => setImportOpen(false)} />
@@ -555,6 +608,7 @@ function BooksAdmin() {
 }
 
 function BookImport({ open, close }: { open: boolean; close: () => void }) {
+  const { t } = useTranslation("admin");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportResult | null>(null);
   const client = useQueryClient();
@@ -566,7 +620,7 @@ function BookImport({ open, close }: { open: boolean; close: () => void }) {
       if (dryRun) {
         setPreview(r);
       } else {
-        message.success(`已导入 ${r.imported} 本书。`);
+        message.success(t("import.success", { count: r.imported }));
         client.invalidateQueries();
         setFile(null);
         setPreview(null);
@@ -578,7 +632,7 @@ function BookImport({ open, close }: { open: boolean; close: () => void }) {
   const template = () => {
     const blob = new Blob(
       [
-        "\ufefftitle,author,isbn,description,category\n示例书籍,示例作者,,内容简介,文学\n",
+        `\ufefftitle,author,isbn,description,category\n${t("import.exampleRow")}\n`,
       ],
       { type: "text/csv;charset=utf-8" },
     );
@@ -597,17 +651,17 @@ function BookImport({ open, close }: { open: boolean; close: () => void }) {
         setFile(null);
         close();
       }}
-      title="CSV 书目导入"
+      title={t("import.title")}
       width={760}
       footer={
         <Space>
-          <Button onClick={close}>取消</Button>
+          <Button onClick={close}>{t("action.cancel")}</Button>
           <Button
             disabled={!file}
             loading={upload.isPending}
             onClick={() => upload.mutate(true)}
           >
-            校验与预览
+            {t("import.preview")}
           </Button>
           <Button
             type="primary"
@@ -619,17 +673,14 @@ function BookImport({ open, close }: { open: boolean; close: () => void }) {
             loading={upload.isPending}
             onClick={() => upload.mutate(false)}
           >
-            确认导入
+            {t("import.confirm")}
           </Button>
         </Space>
       }
     >
-      <p className="muted">
-        先选择 UTF-8
-        CSV，预览并检查每行结果，再确认导入。重复或不合法记录需修正。
-      </p>
+      <p className="muted">{t("import.instructions")}</p>
       <Button icon={<DownloadOutlined />} type="link" onClick={template}>
-        下载书目模板
+        {t("import.download")}
       </Button>
       <Upload.Dragger
         accept=".csv,text/csv"
@@ -648,10 +699,8 @@ function BookImport({ open, close }: { open: boolean; close: () => void }) {
         <p className="ant-upload-drag-icon">
           <InboxOutlined />
         </p>
-        <p>拖入 CSV 文件，或点击选择</p>
-        <p className="ant-upload-hint">
-          字段：title、author、isbn、description、category
-        </p>
+        <p>{t("import.drop")}</p>
+        <p className="ant-upload-hint">{t("import.fields")}</p>
       </Upload.Dragger>
       {preview && (
         <Table
@@ -661,19 +710,26 @@ function BookImport({ open, close }: { open: boolean; close: () => void }) {
           dataSource={preview.rows}
           pagination={{ pageSize: 8 }}
           columns={[
-            { title: "CSV 行", dataIndex: "row", width: 90 },
+            { title: t("import.row"), dataIndex: "row", width: 90 },
             {
-              title: "校验",
+              title: t("import.validation"),
               dataIndex: "valid",
               width: 100,
               render: (v) => (
-                <Tag color={v ? "green" : "red"}>{v ? "通过" : "需修正"}</Tag>
+                <Tag color={v ? "green" : "red"}>
+                  {v ? t("import.passed") : t("import.invalid")}
+                </Tag>
               ),
             },
             {
-              title: "错误说明",
+              title: t("import.errors"),
               dataIndex: "errors",
-              render: (v: string[]) => (v.length ? v.join("；") : "—"),
+              render: (v: string[]) =>
+                v.length
+                  ? v
+                      .map((error) => localizeText(error))
+                      .join(t("import.separator"))
+                  : "—",
             },
           ]}
         />
@@ -683,11 +739,13 @@ function BookImport({ open, close }: { open: boolean; close: () => void }) {
 }
 
 function UsersAdmin() {
+  const { t } = useTranslation("admin");
   const [search, setSearch] = useState("");
   const { result, pagination } = useAdminList<User>("users", search);
   const [editing, setEditing] = useState<User | null>(null);
   const [open, setOpen] = useState(false);
   const [form] = Form.useForm();
+  useLocalizedValidation(form);
   const client = useQueryClient();
   const { message } = App.useApp();
   const save = useMutation({
@@ -700,7 +758,7 @@ function UsersAdmin() {
           })
         : api.post<User>("/admin/users", values),
     onSuccess: () => {
-      message.success("账号已保存。");
+      message.success(t("users.saved"));
       setOpen(false);
       client.invalidateQueries();
     },
@@ -708,7 +766,7 @@ function UsersAdmin() {
   });
   const reset = useMutation({
     mutationFn: (id: number) => api.post(`/admin/users/${id}/password-reset`),
-    onSuccess: () => message.success("已提交密码重置邮件请求。"),
+    onSuccess: () => message.success(t("users.resetRequested")),
     onError: (e) => message.error(errorMessage(e)),
   });
   const edit = (u: User | null) => {
@@ -719,7 +777,7 @@ function UsersAdmin() {
   };
   const columns: ColumnsType<User> = [
     {
-      title: "读者",
+      title: t("reader"),
       dataIndex: "displayName",
       render: (_, u) => (
         <div className="user-cell">
@@ -732,47 +790,49 @@ function UsersAdmin() {
       ),
     },
     {
-      title: "角色",
+      title: t("users.role"),
       dataIndex: "role",
       render: (v) => (
         <Tag color={v === "ADMIN" ? "purple" : "default"}>
-          {v === "ADMIN" ? "管理员" : "读者"}
+          {v === "ADMIN" ? t("users.admin") : t("reader")}
         </Tag>
       ),
     },
     {
-      title: "状态",
+      title: t("column.status"),
       dataIndex: "enabled",
       render: (v) => (
-        <Tag color={v ? "green" : "red"}>{v ? "已启用" : "已禁用"}</Tag>
+        <Tag color={v ? "green" : "red"}>
+          {v ? t("users.enabled") : t("users.disabled")}
+        </Tag>
       ),
     },
     {
-      title: "邮箱",
+      title: t("users.email"),
       dataIndex: "emailVerified",
-      render: (v) => (v ? "已验证" : "未验证"),
+      render: (v) => (v ? t("users.verified") : t("users.unverified")),
     },
     {
-      title: "操作",
+      title: t("column.actions"),
       key: "action",
       width: 220,
       render: (_, u) => (
         <Space>
           <Button size="small" onClick={() => edit(u)}>
-            管理
+            {t("users.manage")}
           </Button>
           <Popconfirm
-            title="发送密码重置邮件？"
-            description="管理员不能查看或读取用户密码。"
-            okText="发送"
-            cancelText="取消"
+            title={t("users.resetConfirm")}
+            description={t("users.resetHint")}
+            okText={t("action.send")}
+            cancelText={t("action.cancel")}
             onConfirm={() => reset.mutateAsync(u.id).catch(() => {})}
           >
             <Button
               size="small"
               loading={reset.isPending && reset.variables === u.id}
             >
-              重置密码
+              {t("users.reset")}
             </Button>
           </Popconfirm>
         </Space>
@@ -782,29 +842,31 @@ function UsersAdmin() {
   return (
     <>
       <PageHeading
-        eyebrow="READER MANAGEMENT"
-        title="账号管理"
-        description="管理读者与角色，安全地维护每个阅读空间。"
+        eyebrow={t("users.eyebrow")}
+        title={t("nav.users")}
+        description={t("users.description")}
         extra={
           <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => edit(null)}
           >
-            创建账号
+            {t("users.create")}
           </Button>
         }
       />
       <Card className="admin-table-card">
         <div className="admin-toolbar">
           <Input.Search
-            placeholder="搜索称呼、邮箱"
+            placeholder={t("users.search")}
             onSearch={setSearch}
             allowClear
             style={{ maxWidth: 360 }}
-            enterButton="搜索"
+            enterButton={t("action.search")}
           />
-          <span className="muted">{result.data?.total ?? "—"} 个账号</span>
+          <span className="muted">
+            {t("users.total", { count: result.data?.total ?? 0 })}
+          </span>
         </div>
         <AdminListError result={result} />
         {!result.isError && (
@@ -821,14 +883,14 @@ function UsersAdmin() {
       <Drawer
         open={open}
         onClose={() => setOpen(false)}
-        title={editing ? "管理账号" : "创建账号"}
+        title={editing ? t("users.edit") : t("users.create")}
         extra={
           <Button
             type="primary"
             onClick={() => form.submit()}
             loading={save.isPending}
           >
-            保存
+            {t("action.save")}
           </Button>
         }
       >
@@ -839,19 +901,23 @@ function UsersAdmin() {
         >
           <Form.Item
             name="displayName"
-            label="称呼"
+            label={t("users.name")}
             rules={[
-              { required: true, whitespace: true, message: "请输入称呼" },
+              {
+                required: true,
+                whitespace: true,
+                message: t("users.nameRequired"),
+              },
             ]}
           >
             <Input />
           </Form.Item>
           <Form.Item
             name="email"
-            label="邮箱"
+            label={t("users.email")}
             rules={[
-              { required: true, message: "请输入邮箱" },
-              { type: "email", message: "邮箱格式不正确" },
+              { required: true, message: t("users.emailRequired") },
+              { type: "email", message: t("users.emailInvalid") },
             ]}
           >
             <Input disabled={!!editing} />
@@ -859,37 +925,41 @@ function UsersAdmin() {
           {!editing && (
             <Form.Item
               name="password"
-              label="初始密码"
+              label={t("users.password")}
               rules={[
-                { required: true, message: "请输入初始密码" },
+                { required: true, message: t("users.passwordRequired") },
                 {
                   min: 10,
                   max: 72,
-                  message: "密码10–72位，非ASCII字符受字节限制",
+                  message: t("users.passwordLimit"),
                 },
               ]}
             >
               <Input.Password autoComplete="new-password" />
             </Form.Item>
           )}
-          <Form.Item name="role" label="角色">
+          <Form.Item name="role" label={t("users.role")}>
             <Select
               options={[
-                { value: "READER", label: "读者" },
-                { value: "ADMIN", label: "管理员" },
+                { value: "READER", label: t("reader") },
+                { value: "ADMIN", label: t("users.admin") },
               ]}
             />
           </Form.Item>
           {editing && (
-            <Form.Item name="enabled" label="账号启用" valuePropName="checked">
+            <Form.Item
+              name="enabled"
+              label={t("users.enableAccount")}
+              valuePropName="checked"
+            >
               <Switch />
             </Form.Item>
           )}
           <Alert
             type="info"
             showIcon
-            title="账号状态变更立即影响访问权限"
-            description="禁用将取消有效预约并使现有会话失效，历史记录保留。系统保护最后一个有效管理员。"
+            title={t("users.accessTitle")}
+            description={t("users.accessHint")}
           />
         </Form>
       </Drawer>
@@ -898,13 +968,14 @@ function UsersAdmin() {
 }
 
 function LoansAdmin() {
+  const { t } = useTranslation("admin");
   const { result, pagination } = useAdminList<AdminLoan>("loans");
   const client = useQueryClient();
   const { message } = App.useApp();
   const ret = useMutation({
     mutationFn: (id: number) => api.put(`/admin/loans/${id}/return`),
     onSuccess: () => {
-      message.success("已代为归还，并保留审计记录。");
+      message.success(t("loans.returnedToast"));
       client.invalidateQueries();
     },
     onError: (e) => message.error(errorMessage(e)),
@@ -912,9 +983,9 @@ function LoansAdmin() {
   return (
     <>
       <PageHeading
-        eyebrow="LENDING RECORDS"
-        title="借阅记录"
-        description="查看借阅生命周期，在必要时协助读者归还。"
+        eyebrow={t("loans.eyebrow")}
+        title={t("nav.loans")}
+        description={t("loans.description")}
       />
       <Card className="admin-table-card">
         <AdminListError result={result} />
@@ -926,22 +997,21 @@ function LoansAdmin() {
             pagination={pagination}
             scroll={{ x: 950 }}
             columns={[
-              adminReaderColumn,
+              adminReaderColumn(t),
               {
-                title: "借阅编号",
+                title: t("loans.id"),
                 dataIndex: "id",
                 ellipsis: true,
                 width: 150,
               },
-              adminReaderColumn,
-              { title: "书籍", dataIndex: "title" },
+              { title: t("column.book"), dataIndex: "title" },
               {
-                title: "借阅于",
+                title: t("loans.borrowed"),
                 dataIndex: "borrowedAt",
                 render: (v) => formatDate(v),
               },
               {
-                title: "到期于",
+                title: t("loans.due"),
                 dataIndex: "dueAt",
                 render: (v, r) => (
                   <span
@@ -956,34 +1026,34 @@ function LoansAdmin() {
                 ),
               },
               {
-                title: "归还于",
+                title: t("loans.returned"),
                 dataIndex: "returnedAt",
                 render: (v) => formatDate(v),
               },
               {
-                title: "续借",
+                title: t("loans.renewal"),
                 dataIndex: "renewalCount",
-                render: (v) => `${v} 次`,
+                render: (v) => t("count.times", { count: v }),
               },
               {
-                title: "操作",
+                title: t("column.actions"),
                 key: "action",
                 render: (_, r) =>
                   r.returnedAt ? (
-                    <Tag>已归还</Tag>
+                    <Tag>{t("loans.returnedStatus")}</Tag>
                   ) : (
                     <Popconfirm
-                      title="以管理员身份代为归还？"
-                      description="操作将释放授权、计算演示逾期金额并留下审计。"
-                      okText="确认归还"
-                      cancelText="取消"
+                      title={t("loans.returnConfirm")}
+                      description={t("loans.returnHint")}
+                      okText={t("loans.returnConfirmAction")}
+                      cancelText={t("action.cancel")}
                       onConfirm={() => ret.mutateAsync(r.id).catch(() => {})}
                     >
                       <Button
                         size="small"
                         loading={ret.isPending && ret.variables === r.id}
                       >
-                        代为归还
+                        {t("loans.return")}
                       </Button>
                     </Popconfirm>
                   ),
@@ -997,13 +1067,14 @@ function LoansAdmin() {
 }
 
 function ReservationsAdmin() {
+  const { t } = useTranslation("admin");
   const { result, pagination } = useAdminList<AdminReservation>("reservations");
   return (
     <>
       <PageHeading
-        eyebrow="RESERVATION QUEUE"
-        title="预约队列"
-        description="按顺序分配每一次阅读机会。可领取授权保留48小时。"
+        eyebrow={t("reservations.eyebrow")}
+        title={t("nav.reservations")}
+        description={t("reservations.description")}
       />
       <Card className="admin-table-card">
         <AdminListError result={result} />
@@ -1015,32 +1086,31 @@ function ReservationsAdmin() {
             pagination={pagination}
             scroll={{ x: 800 }}
             columns={[
-              adminReaderColumn,
+              adminReaderColumn(t),
               {
-                title: "预约编号",
+                title: t("reservations.id"),
                 dataIndex: "id",
                 ellipsis: true,
                 width: 150,
               },
-              adminReaderColumn,
-              { title: "书籍", dataIndex: "title" },
+              { title: t("column.book"), dataIndex: "title" },
               {
-                title: "状态",
+                title: t("column.status"),
                 dataIndex: "status",
                 render: (v) => <StatusTag value={v} />,
               },
               {
-                title: "队列位置",
+                title: t("reservations.position"),
                 dataIndex: "position",
                 render: (v) => v || "—",
               },
               {
-                title: "预约时间",
+                title: t("reservations.created"),
                 dataIndex: "createdAt",
                 render: (v) => formatDate(v, true),
               },
               {
-                title: "保留至",
+                title: t("reservations.expires"),
                 dataIndex: "expiresAt",
                 render: (v) => formatDate(v, true),
               },
@@ -1053,11 +1123,13 @@ function ReservationsAdmin() {
 }
 
 function FinesAdmin() {
+  const { t } = useTranslation("admin");
   const { result, pagination } = useAdminList<AdminFine>("fines");
   const client = useQueryClient();
   const { message } = App.useApp();
   const [editing, setEditing] = useState<Fine | null>(null);
   const [form] = Form.useForm();
+  useLocalizedValidation(form);
   const adjust = useMutation({
     mutationFn: (values: { amount: number; reason: string }) =>
       api.post(`/admin/fines/${editing?.id}/adjustments`, {
@@ -1065,7 +1137,7 @@ function FinesAdmin() {
         reason: values.reason,
       }),
     onSuccess: () => {
-      message.success("减免已记录。");
+      message.success(t("fines.waivedToast"));
       setEditing(null);
       client.invalidateQueries();
     },
@@ -1074,7 +1146,7 @@ function FinesAdmin() {
   const settle = useMutation({
     mutationFn: (id: number) => api.post(`/admin/fines/${id}/settle`),
     onSuccess: () => {
-      message.success("已标记演示结清，没有发生真实扣款。");
+      message.success(t("fines.settledToast"));
       client.invalidateQueries();
     },
     onError: (e) => message.error(errorMessage(e)),
@@ -1082,16 +1154,16 @@ function FinesAdmin() {
   return (
     <>
       <PageHeading
-        eyebrow="DEMONSTRATION BILLING"
-        title="演示账单"
-        description="清晰展示计费与调整，不连接支付网关，不发生真实扣款。"
+        eyebrow={t("fines.eyebrow")}
+        title={t("nav.fines")}
+        description={t("fines.description")}
       />
       <Alert
         className="billing-notice"
         type="info"
         showIcon
-        title="仅作演示记账"
-        description="减免与演示结清均保存操作记录。实际余额以服务端返回为准。"
+        title={t("fines.notice")}
+        description={t("fines.noticeHint")}
       />
       <Card className="admin-table-card">
         <AdminListError result={result} />
@@ -1103,20 +1175,20 @@ function FinesAdmin() {
             pagination={pagination}
             scroll={{ x: 900 }}
             columns={[
-              adminReaderColumn,
-              { title: "书籍", dataIndex: "bookTitle" },
+              adminReaderColumn(t),
+              { title: t("column.book"), dataIndex: "bookTitle" },
               {
-                title: "原金额",
+                title: t("fines.original"),
                 dataIndex: "amountMinor",
                 render: (v) => money(v),
               },
               {
-                title: "已减免",
+                title: t("fines.waived"),
                 dataIndex: "waivedMinor",
                 render: (v) => money(v),
               },
               {
-                title: "待处理",
+                title: t("fines.outstanding"),
                 render: (_, f) =>
                   money(
                     ["SETTLED", "PAID", "WAIVED"].includes(f.status)
@@ -1125,12 +1197,12 @@ function FinesAdmin() {
                   ),
               },
               {
-                title: "状态",
+                title: t("column.status"),
                 dataIndex: "status",
                 render: (v) => <StatusTag value={v} />,
               },
               {
-                title: "操作",
+                title: t("column.actions"),
                 render: (_, f) =>
                   !["SETTLED", "PAID", "WAIVED"].includes(f.status) ? (
                     <Space>
@@ -1141,13 +1213,13 @@ function FinesAdmin() {
                           form.resetFields();
                         }}
                       >
-                        减免
+                        {t("fines.waive")}
                       </Button>
                       <Popconfirm
-                        title="标记为演示结清？"
-                        description="这不代表已收到真实款项。"
-                        okText="确认"
-                        cancelText="取消"
+                        title={t("fines.settleConfirm")}
+                        description={t("fines.settleHint")}
+                        okText={t("action.confirm")}
+                        cancelText={t("action.cancel")}
                         onConfirm={() =>
                           settle.mutateAsync(f.id).catch(() => {})
                         }
@@ -1158,12 +1230,12 @@ function FinesAdmin() {
                             settle.isPending && settle.variables === f.id
                           }
                         >
-                          演示结清
+                          {t("fines.settle")}
                         </Button>
                       </Popconfirm>
                     </Space>
                   ) : (
-                    <span className="muted">已处理</span>
+                    <span className="muted">{t("fines.processed")}</span>
                   ),
               },
             ]}
@@ -1172,24 +1244,28 @@ function FinesAdmin() {
       </Card>
       <Modal
         open={!!editing}
-        title="记录账单减免"
+        title={t("fines.waiveTitle")}
         onCancel={() => setEditing(null)}
         onOk={() => form.submit()}
         confirmLoading={adjust.isPending}
-        okText="记录减免"
-        cancelText="取消"
+        okText={t("fines.waiveConfirm")}
+        cancelText={t("action.cancel")}
       >
         <p>
-          {editing?.bookTitle} · 当前剩余{" "}
-          {money(editing ? editing.amountMinor - editing.waivedMinor : 0)}
+          {t("fines.balance", {
+            title: editing?.bookTitle || "",
+            amount: money(
+              editing ? editing.amountMinor - editing.waivedMinor : 0,
+            ),
+          })}
         </p>
         <Form form={form} layout="vertical" onFinish={(v) => adjust.mutate(v)}>
           <Form.Item
             name="amount"
-            label="减免金额（元）"
+            label={t("fines.amount")}
             rules={[
-              { required: true, message: "请输入金额" },
-              { type: "number", min: 0.01, message: "金额必须大于0" },
+              { required: true, message: t("fines.amountRequired") },
+              { type: "number", min: 0.01, message: t("fines.amountPositive") },
             ]}
           >
             <InputNumber
@@ -1205,10 +1281,14 @@ function FinesAdmin() {
           </Form.Item>
           <Form.Item
             name="reason"
-            label="原因"
+            label={t("fines.reason")}
             rules={[
-              { required: true, whitespace: true, message: "请填写减免原因" },
-              { max: 500, message: "原因不超过500位" },
+              {
+                required: true,
+                whitespace: true,
+                message: t("fines.reasonRequired"),
+              },
+              { max: 500, message: t("fines.reasonLimit") },
             ]}
           >
             <Input.TextArea rows={3} />
@@ -1220,13 +1300,14 @@ function FinesAdmin() {
 }
 
 function AuditAdmin() {
+  const { t } = useTranslation("admin");
   const { result, pagination } = useAdminList<Audit>("audit");
   return (
     <>
       <PageHeading
-        eyebrow="A TRACE OF EVERY CHANGE"
-        title="操作审计"
-        description="谁在什么时候，做了什么。重要操作保持可追溯。"
+        eyebrow={t("audit.eyebrow")}
+        title={t("nav.audit")}
+        description={t("audit.description")}
       />
       <Card className="admin-table-card">
         <AdminListError result={result} />
@@ -1239,23 +1320,61 @@ function AuditAdmin() {
             scroll={{ x: 950 }}
             columns={[
               {
-                title: "时间",
+                title: t("audit.time"),
                 dataIndex: "createdAt",
                 width: 180,
                 render: (v) => formatDate(v, true),
               },
-              { title: "操作人", dataIndex: "actor", ellipsis: true },
+              { title: t("audit.actor"), dataIndex: "actor", ellipsis: true },
               {
-                title: "操作",
+                title: t("column.actions"),
                 dataIndex: "action",
-                render: (v) => <Tag>{v}</Tag>,
+                render: (v: string) => (
+                  <Tag title={v}>
+                    {t(`audit.action.${v}`, { defaultValue: v })}
+                  </Tag>
+                ),
               },
-              { title: "目标", dataIndex: "target", ellipsis: true },
-              { title: "详情", dataIndex: "detail", ellipsis: true },
+              { title: t("audit.target"), dataIndex: "target", ellipsis: true },
+              {
+                title: t("audit.detail"),
+                dataIndex: "detail",
+                ellipsis: true,
+                render: (value: string, record: Audit) =>
+                  auditDetail(value, record.action, t),
+              },
             ]}
           />
         )}
       </Card>
     </>
   );
+}
+
+function auditDetail(value: string, action: string, t: TFunction<"admin">) {
+  if (action === "BOOK_STATUS")
+    return t(`audit.status.${value}`, { defaultValue: value });
+  if (action === "USER_CREATE")
+    return value === "ADMIN"
+      ? t("users.admin")
+      : value === "READER"
+        ? t("reader")
+        : value;
+  const details: Record<string, string> = {
+    "Administrative return": "audit.detail.return",
+    "Demonstration only; no payment processed": "audit.detail.settle",
+    "Uploaded sanitized PNG": "audit.detail.cover",
+    "CSV import": "audit.detail.import",
+  };
+  if (details[value]) return t(details[value]);
+  if (action === "USER_UPDATE") {
+    const update = /^enabled=(true|false),role=(ADMIN|READER)$/.exec(value);
+    if (update)
+      return t("audit.detail.userUpdate", {
+        status: t(update[1] === "true" ? "users.enabled" : "users.disabled"),
+        role: t(update[2] === "ADMIN" ? "users.admin" : "reader"),
+      });
+  }
+  // Book titles and administrator-entered reasons remain original content.
+  return value;
 }

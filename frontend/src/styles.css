@@ -214,6 +214,27 @@ a:focus-visible {
   align-items: center;
   gap: 24px;
 }
+.language-switcher.ant-btn {
+  padding: 0 7px;
+  font-size: 12px;
+  gap: 6px;
+  flex-shrink: 0;
+  color: var(--green);
+}
+.access-state {
+  max-width: 640px;
+  margin: 48px auto;
+  padding: 0 20px;
+}
+.access-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.login-label-short {
+  display: none;
+}
 .notification-link {
   font-size: 19px;
 }
@@ -1442,6 +1463,15 @@ a:focus-visible {
   font-style: normal;
   color: #c0c7b6;
 }
+.admin-topbar > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-topbar > .ant-space {
+  flex-shrink: 0;
+}
 .admin-topbar .ant-tag {
   font-size: 9px;
 }
@@ -1826,6 +1856,14 @@ a:focus-visible {
     font-size: 23px;
   }
 }
+@media (max-width: 900px) {
+  .desktop-nav {
+    display: none;
+  }
+  .mobile-menu-button {
+    display: inline-flex;
+  }
+}
 @media (max-width: 800px) {
   .announcement {
     font-size: 8px;
@@ -2185,6 +2223,29 @@ a:focus-visible {
   }
   .site-header {
     height: 75px;
+    gap: 12px;
+  }
+  .header-actions {
+    gap: 6px;
+  }
+  .login-label-full {
+    display: none;
+  }
+  .login-label-short {
+    display: inline;
+  }
+  .header-actions .login-button {
+    padding: 0 9px;
+  }
+  .language-switcher.ant-btn {
+    padding: 0 4px;
+    font-size: 11px;
+  }
+  .admin-topbar {
+    gap: 8px;
+  }
+  .admin-topbar .ant-tag {
+    display: none;
   }
   .notification-link {
     font-size: 17px;

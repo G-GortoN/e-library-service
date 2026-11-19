@@ -1,3 +1,5 @@
+import i18n, { currentLanguage, localizeText } from "./i18n.ts";
+
 export class ApiError extends Error {
   status: number;
   code?: string;
@@ -23,8 +25,20 @@ export async function ensureCsrf() {
     })
       .then(async (response) => {
         if (!response.ok)
-          throw new ApiError(response.status, "无法建立安全连接，请稍后重试。");
+          throw new ApiError(
+            response.status,
+            "Unable to establish a secure session / 无法建立安全连接，请稍后重试。",
+            "CSRF_FAILED",
+          );
         csrf = await response.json();
+      })
+      .catch((error) => {
+        if (error instanceof ApiError) throw error;
+        throw new ApiError(
+          0,
+          "The library is unreachable / 暂时无法连接图书馆服务。",
+          "NETWORK_ERROR",
+        );
       })
       .finally(() => {
         csrfPromise = undefined;
@@ -39,6 +53,7 @@ export async function request<T>(
   const method = options.method || "GET";
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
+  headers.set("Accept-Language", currentLanguage());
   if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
     await ensureCsrf();
     if (csrf) headers.set(csrf.headerName, csrf.token);
@@ -53,7 +68,11 @@ export async function request<T>(
       credentials: "include",
     });
   } catch {
-    throw new ApiError(0, "暂时无法连接图书馆服务。请检查网络后重试。");
+    throw new ApiError(
+      0,
+      "The library is unreachable / 暂时无法连接图书馆服务。",
+      "NETWORK_ERROR",
+    );
   }
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -65,9 +84,14 @@ export async function request<T>(
       body.detail ||
         body.message ||
         (response.status === 401
-          ? "登录已失效，请重新登录。"
-          : "操作未完成，请稍后重试。"),
-      body.code,
+          ? "Your session has expired / 登录已失效，请重新登录。"
+          : "The action could not be completed / 操作未完成，请稍后重试。"),
+      body.code ||
+        (!body.detail && !body.message
+          ? response.status === 401
+            ? "SESSION_EXPIRED"
+            : "REQUEST_FAILED"
+          : undefined),
     );
   }
   if (response.status === 204 || response.headers.get("content-length") === "0")
@@ -106,5 +130,19 @@ export function queryString(
   return search.toString();
 }
 export function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "操作未完成，请稍后重试。";
+  if (
+    error instanceof ApiError &&
+    error.code &&
+    [
+      "NETWORK_ERROR",
+      "CSRF_FAILED",
+      "SESSION_EXPIRED",
+      "REQUEST_FAILED",
+    ].includes(error.code)
+  ) {
+    return i18n.t(`errors.${error.code}`);
+  }
+  return error instanceof Error
+    ? localizeText(error.message)
+    : i18n.t("errors.REQUEST_FAILED");
 }

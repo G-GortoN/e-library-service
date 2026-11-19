@@ -20,6 +20,8 @@ import { RequireAuth, useAuth } from "./auth";
 import { api, errorMessage } from "./api";
 import { ErrorState, LoadingState } from "./components";
 import type { Notification } from "./types";
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "./language";
 const Catalog = lazy(() => import("./pages/Catalog"));
 const BookDetail = lazy(() =>
   import("./pages/Catalog").then((m) => ({ default: m.BookDetail })),
@@ -38,6 +40,7 @@ const Profile = lazy(() =>
 const Admin = lazy(() => import("./pages/Admin"));
 
 function ReaderLayout() {
+  const { t } = useTranslation("common");
   const { user, logout, pending } = useAuth();
   const navigate = useNavigate();
   const { message } = AntApp.useApp();
@@ -61,15 +64,15 @@ function ReaderLayout() {
     }
   };
   const accountItems = [
-    { key: "profile", label: <Link to="/account">账号与设置</Link> },
-    { key: "fines", label: <Link to="/fines">借阅账单</Link> },
+    { key: "profile", label: <Link to="/account">{t("nav.account")}</Link> },
+    { key: "fines", label: <Link to="/fines">{t("nav.fines")}</Link> },
     ...(user?.role === "ADMIN"
-      ? [{ key: "admin", label: <Link to="/admin">管理工作台</Link> }]
+      ? [{ key: "admin", label: <Link to="/admin">{t("nav.admin")}</Link> }]
       : []),
     { type: "divider" as const },
     {
       key: "logout",
-      label: loggingOut ? "正在退出…" : "退出登录",
+      label: t(loggingOut ? "nav.loggingOut" : "nav.logout"),
       onClick: exit,
       disabled: loggingOut,
     },
@@ -77,39 +80,41 @@ function ReaderLayout() {
   return (
     <div className="reader-app">
       <a className="skip-link" href="#main-content">
-        跳到主要内容
+        {t("nav.skip")}
       </a>
       <div className="announcement">
-        <span>为好奇心，留一处栖息地。</span>
+        <span>{t("announcement")}</span>
         <span>
-          YOUR NEXT CHAPTER, ALWAYS WITHIN REACH{" "}
+          {t("announcement.secondary")}{" "}
           <span className="announcement-star">✳</span>
         </span>
       </div>
       <header className="site-header">
-        <Link className="brand" to="/" aria-label="栖页 Folio 首页">
+        <Link className="brand" to="/" aria-label={t("brand.home")}>
           <span className="brand-mark">
             <BookOutlined />
           </span>
           <strong>
-            栖页<span>FOLIO</span>
+            {t("brand.name")}
+            <span>{t("brand.subtitle")}</span>
           </strong>
         </Link>
-        <nav className="desktop-nav" aria-label="主要导航">
-          <NavLink to="/books">发现好书</NavLink>
-          <NavLink to="/shelf">我的书架</NavLink>
+        <nav className="desktop-nav" aria-label={t("nav.main")}>
+          <NavLink to="/books">{t("nav.catalog")}</NavLink>
+          <NavLink to="/shelf">{t("nav.shelf")}</NavLink>
           <NavLink to="/notifications">
-            阅读来信
+            {t("nav.notifications")}
             {unread.data?.some((n) => !n.read) && <i className="nav-dot" />}
           </NavLink>
         </nav>
         <div className="header-actions">
+          <LanguageSwitcher />
           {user ? (
             <>
               <Link
                 className="notification-link"
                 to="/notifications"
-                aria-label="查看通知"
+                aria-label={t("nav.viewNotifications")}
               >
                 <Badge
                   count={unread.data?.filter((n) => !n.read).length || 0}
@@ -131,7 +136,9 @@ function ReaderLayout() {
                 type="primary"
                 disabled={pending}
               >
-                登录 / 加入 <ArrowRightOutlined />
+                <span className="login-label-full">{t("nav.login")}</span>
+                <span className="login-label-short">{t("nav.loginShort")}</span>
+                <ArrowRightOutlined />
               </Button>
             </Link>
           )}
@@ -139,24 +146,24 @@ function ReaderLayout() {
             className="mobile-menu-button"
             type="text"
             icon={<MenuOutlined />}
-            aria-label="打开导航"
+            aria-label={t("nav.open")}
             onClick={() => setMenuOpen(true)}
           />
         </div>
       </header>
       <Drawer
-        title="栖页 Folio"
+        title={t("brand.name")}
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         placement="right"
       >
         <nav className="mobile-nav" onClick={() => setMenuOpen(false)}>
-          <Link to="/books">发现好书</Link>
-          <Link to="/shelf">我的书架</Link>
-          <Link to="/notifications">阅读来信</Link>
-          <Link to="/fines">借阅账单</Link>
-          <Link to="/account">账号与设置</Link>
-          {user?.role === "ADMIN" && <Link to="/admin">管理工作台</Link>}
+          <Link to="/books">{t("nav.catalog")}</Link>
+          <Link to="/shelf">{t("nav.shelf")}</Link>
+          <Link to="/notifications">{t("nav.notifications")}</Link>
+          <Link to="/fines">{t("nav.fines")}</Link>
+          <Link to="/account">{t("nav.account")}</Link>
+          {user?.role === "ADMIN" && <Link to="/admin">{t("nav.admin")}</Link>}
         </nav>
       </Drawer>
       <main id="main-content" className="reader-main">
@@ -165,20 +172,20 @@ function ReaderLayout() {
       <footer className="site-footer">
         <div>
           <Link className="footer-wordmark" to="/">
-            栖页 <span>FOLIO</span>
+            {t("brand.name")} <span>{t("brand.subtitle")}</span>
           </Link>
-          <p>让阅读，自然而然地发生。</p>
+          <p>{t("footer.tagline")}</p>
         </div>
         <div className="footer-links">
-          <Link to="/books">探索馆藏</Link>
-          <Link to="/shelf">我的书架</Link>
+          <Link to="/books">{t("footer.catalog")}</Link>
+          <Link to="/shelf">{t("nav.shelf")}</Link>
           <a href="/api/docs" target="_blank" rel="noreferrer">
-            API 文档 ↗
+            {t("footer.api")}
           </a>
         </div>
         <div className="footer-colophon">
-          <span>A QUIET PLACE FOR CURIOUS MINDS.</span>
-          <small>FOLIO DIGITAL LIBRARY · 2026</small>
+          <span>{t("footer.quiet")}</span>
+          <small>{t("footer.colophon")}</small>
         </div>
       </footer>
     </div>
@@ -186,6 +193,7 @@ function ReaderLayout() {
 }
 
 export default function App() {
+  const { t } = useTranslation("common");
   return (
     <Suspense fallback={<LoadingState />}>
       <Routes>
@@ -251,8 +259,8 @@ export default function App() {
             path="*"
             element={
               <ErrorState
-                title="这一页，暂时没有故事"
-                description="页面不存在，你可以通过上方导航回到馆藏。"
+                title={t("error.notFoundTitle")}
+                description={t("error.notFoundDescription")}
               />
             }
           />

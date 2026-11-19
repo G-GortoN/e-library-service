@@ -5,15 +5,18 @@ import {
   ReloadOutlined,
 } from "@ant-design/icons";
 import { Link } from "react-router-dom";
-import type { Book } from "./types";
+import type { Book, Notification } from "./types";
 import { errorMessage } from "./api";
+import { useTranslation } from "react-i18next";
+import i18n, { currentLanguage, localizeText } from "./i18n";
 
 export function LoadingState({ compact = false }: { compact?: boolean }) {
+  const { t } = useTranslation("common");
   return (
     <div
       className={`state-wrap ${compact ? "compact" : ""}`}
       role="status"
-      aria-label="正在加载"
+      aria-label={t("loading")}
     >
       <Skeleton active paragraph={{ rows: compact ? 2 : 4 }} />
     </div>
@@ -22,7 +25,7 @@ export function LoadingState({ compact = false }: { compact?: boolean }) {
 export function ErrorState({
   error,
   retry,
-  title = "暂时无法加载",
+  title,
   description,
 }: {
   error?: unknown;
@@ -30,17 +33,18 @@ export function ErrorState({
   title?: string;
   description?: string;
 }) {
+  const { t } = useTranslation("common");
   return (
     <div className="state-wrap">
       <Alert
         type="error"
         showIcon
-        title={title}
+        title={title || t("loadError")}
         description={description || errorMessage(error)}
         action={
           retry ? (
             <Button icon={<ReloadOutlined />} onClick={retry}>
-              重试
+              {t("retry")}
             </Button>
           ) : undefined
         }
@@ -49,7 +53,7 @@ export function ErrorState({
   );
 }
 export function EmptyState({
-  title = "这里还没有内容",
+  title,
   description,
   action,
 }: {
@@ -57,13 +61,14 @@ export function EmptyState({
   description?: string;
   action?: React.ReactNode;
 }) {
+  const { t } = useTranslation("common");
   return (
     <div className="empty-state">
       <Empty
         image={<BookOutlined />}
         description={
           <>
-            <h3>{title}</h3>
+            <h3>{title || t("empty")}</h3>
             {description && <p>{description}</p>}
           </>
         }
@@ -110,6 +115,7 @@ export function BookCover({
   book: Pick<Book, "title" | "author" | "coverUrl"> & { category?: string };
   small?: boolean;
 }) {
+  const { t } = useTranslation("common");
   const hash = Array.from(book.title).reduce(
     (sum, c) => sum + c.charCodeAt(0),
     0,
@@ -121,7 +127,7 @@ export function BookCover({
         <img
           loading="lazy"
           src={book.coverUrl}
-          alt={`${book.title}封面`}
+          alt={t("cover.image", { title: book.title })}
           onError={(e) => {
             e.currentTarget.style.display = "none";
             e.currentTarget.parentElement?.classList.add("cover-failed");
@@ -134,7 +140,7 @@ export function BookCover({
     <div
       className={`book-cover generated-cover cover-variant-${hash % 4} ${small ? "small" : ""}`}
       style={{ background, color }}
-      aria-label={`${book.title}文字封面`}
+      aria-label={t("cover.generated", { title: book.title })}
     >
       <span className="cover-imprint">FOLIO / SELECTED</span>
       <div className="cover-art" aria-hidden="true">
@@ -144,18 +150,21 @@ export function BookCover({
       </div>
       <strong>{book.title}</strong>
       <span className="cover-author">{book.author}</span>
-      <span className="cover-bottom">栖页藏书 · {book.category || "阅读"}</span>
+      <span className="cover-bottom">
+        {t("cover.collection")} · {book.category || t("cover.reading")}
+      </span>
     </div>
   );
 }
 export function BookCard({ book }: { book: Book }) {
+  const { t } = useTranslation("common");
   return (
     <Link className="book-card" to={`/books/${book.id}`}>
       <BookCover book={book} />
       <div className="book-card-meta">
         <span>{book.category}</span>
         <span className={`availability ${book.available ? "" : "unavailable"}`}>
-          {book.available ? "可借阅" : "可预约"}
+          {t(book.available ? "book.available" : "book.reservable")}
         </span>
       </div>
       <h3>{book.title}</h3>
@@ -166,21 +175,32 @@ export function BookCard({ book }: { book: Book }) {
     </Link>
   );
 }
-export const bookStatusLabels: Record<string, string> = {
-  DRAFT: "草稿",
-  PUBLISHED: "已上架",
-  UNPUBLISHED: "已下架",
-  ARCHIVED: "已归档",
-};
-export const reservationLabels: Record<string, string> = {
-  WAITING: "排队中",
-  READY: "待领取",
-  CLAIMED: "已领取",
-  FULFILLED: "已完成",
-  CANCELLED: "已取消",
-  EXPIRED: "已过期",
-};
+function statusLabels(values: string[]): Record<string, string> {
+  const labels: Record<string, string> = {};
+  values.forEach((value) =>
+    Object.defineProperty(labels, value, {
+      enumerable: true,
+      get: () => i18n.t(`status.${value}`),
+    }),
+  );
+  return labels;
+}
+export const bookStatusLabels = statusLabels([
+  "DRAFT",
+  "PUBLISHED",
+  "UNPUBLISHED",
+  "ARCHIVED",
+]);
+export const reservationLabels = statusLabels([
+  "WAITING",
+  "READY",
+  "CLAIMED",
+  "FULFILLED",
+  "CANCELLED",
+  "EXPIRED",
+]);
 export function StatusTag({ value }: { value: string }) {
+  const { t } = useTranslation("common");
   return (
     <Tag
       color={
@@ -191,16 +211,7 @@ export function StatusTag({ value }: { value: string }) {
             : "gold"
       }
     >
-      {bookStatusLabels[value] ||
-        reservationLabels[value] ||
-        {
-          OPEN: "待处理",
-          SETTLED: "已结清",
-          PAID: "已结清",
-          WAIVED: "已减免",
-          UNPAID: "未结清",
-        }[value] ||
-        value}
+      {t(`status.${value}`, { defaultValue: value })}
     </Tag>
   );
 }
@@ -209,7 +220,7 @@ export function formatDate(value?: string | null, time = false) {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? "—"
-    : new Intl.DateTimeFormat("zh-CN", {
+    : new Intl.DateTimeFormat(currentLanguage(), {
         year: "numeric",
         month: "short",
         day: "numeric",
@@ -217,8 +228,15 @@ export function formatDate(value?: string | null, time = false) {
       }).format(date);
 }
 export function money(minor = 0) {
-  return new Intl.NumberFormat("zh-CN", {
+  return new Intl.NumberFormat(currentLanguage(), {
     style: "currency",
     currency: "CNY",
   }).format(minor / 100);
+}
+
+export function localizedNotification(notification: Notification) {
+  return {
+    title: localizeText(notification.title),
+    body: localizeText(notification.body),
+  };
 }

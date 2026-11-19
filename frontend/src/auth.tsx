@@ -1,9 +1,11 @@
 import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Navigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { api, ApiError, clearCsrf, ensureCsrf } from "./api";
 import type { User } from "./types";
 import { ErrorState, LoadingState } from "./components";
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "./language";
 
 interface AuthState {
   user: User | null;
@@ -69,6 +71,7 @@ export function RequireAuth({
   children: ReactNode;
   admin?: boolean;
 }) {
+  const { t } = useTranslation("common");
   const { user, pending } = useAuth();
   const location = useLocation();
   if (pending) return <LoadingState />;
@@ -82,10 +85,16 @@ export function RequireAuth({
     );
   if (admin && user.role !== "ADMIN")
     return (
-      <ErrorState
-        title="这里需要管理员权限"
-        description="你仍然可以浏览图书和管理自己的书架。"
-      />
+      <section className="access-state">
+        <div className="access-actions">
+          <Link to="/books">{t("footer.catalog")}</Link>
+          <LanguageSwitcher />
+        </div>
+        <ErrorState
+          title={t("error.adminTitle")}
+          description={t("error.adminDescription")}
+        />
+      </section>
     );
   return children;
 }

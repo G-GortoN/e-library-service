@@ -4,13 +4,21 @@ import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App as AntApp, Button, ConfigProvider, Result } from "antd";
 import zhCN from "antd/locale/zh_CN";
+import enUS from "antd/locale/en_US";
+import { I18nextProvider, useTranslation } from "react-i18next";
+import i18n from "./i18n";
 import App from "./App";
 import { ApiError } from "./api";
 import { AuthProvider } from "./auth";
 import "./styles.css";
 
 class ErrorBoundary extends Component<
-  { children: ReactNode },
+  {
+    children: ReactNode;
+    title: string;
+    description: string;
+    refreshLabel: string;
+  },
   { failed: boolean }
 > {
   state = { failed: false };
@@ -21,10 +29,12 @@ class ErrorBoundary extends Component<
     return this.state.failed ? (
       <Result
         status="error"
-        title="页面遇到了一点问题"
-        subTitle="请刷新后重试。已经提交的操作请先确认当前状态，再决定是否重复操作。"
+        title={this.props.title}
+        subTitle={this.props.description}
         extra={
-          <Button onClick={() => window.location.reload()}>刷新页面</Button>
+          <Button onClick={() => window.location.reload()}>
+            {this.props.refreshLabel}
+          </Button>
         }
       />
     ) : (
@@ -48,48 +58,60 @@ const queryClient = new QueryClient({
     mutations: { retry: false },
   },
 });
-createRoot(document.getElementById("root")!).render(
-  <ErrorBoundary>
-    <ConfigProvider
-      locale={zhCN}
-      theme={{
-        token: {
-          colorPrimary: "#123d35",
-          colorInfo: "#486e64",
-          colorSuccess: "#4b7258",
-          colorWarning: "#b57b3d",
-          colorError: "#ad4c38",
-          colorText: "#233b33",
-          colorTextSecondary: "#758078",
-          colorBgLayout: "#f7f5ef",
-          colorBorder: "#e1e4dc",
-          borderRadius: 8,
-          fontFamily:
-            'Inter, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif',
-          controlHeight: 38,
-        },
-        components: {
-          Button: { primaryShadow: "none" },
-          Card: { paddingLG: 24 },
-          Table: {
-            headerBg: "#f5f7f3",
-            headerColor: "#68736b",
-            rowHoverBg: "#f7f8f4",
-          },
-          Tabs: { inkBarColor: "#123d35" },
-          Input: { activeShadow: "0 0 0 2px #123d3510" },
-        },
-      }}
+function ApplicationRoot() {
+  const { t, i18n: language } = useTranslation("common");
+  return (
+    <ErrorBoundary
+      title={t("error.title")}
+      description={t("error.description")}
+      refreshLabel={t("error.refresh")}
     >
-      <AntApp>
-        <QueryClientProvider client={queryClient}>
-          <BrowserRouter>
-            <AuthProvider>
-              <App />
-            </AuthProvider>
-          </BrowserRouter>
-        </QueryClientProvider>
-      </AntApp>
-    </ConfigProvider>
-  </ErrorBoundary>,
+      <ConfigProvider
+        locale={language.resolvedLanguage === "en" ? enUS : zhCN}
+        theme={{
+          token: {
+            colorPrimary: "#123d35",
+            colorInfo: "#486e64",
+            colorSuccess: "#4b7258",
+            colorWarning: "#b57b3d",
+            colorError: "#ad4c38",
+            colorText: "#233b33",
+            colorTextSecondary: "#758078",
+            colorBgLayout: "#f7f5ef",
+            colorBorder: "#e1e4dc",
+            borderRadius: 8,
+            fontFamily:
+              'Inter, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif',
+            controlHeight: 38,
+          },
+          components: {
+            Button: { primaryShadow: "none" },
+            Card: { paddingLG: 24 },
+            Table: {
+              headerBg: "#f5f7f3",
+              headerColor: "#68736b",
+              rowHoverBg: "#f7f8f4",
+            },
+            Tabs: { inkBarColor: "#123d35" },
+            Input: { activeShadow: "0 0 0 2px #123d3510" },
+          },
+        }}
+      >
+        <AntApp>
+          <QueryClientProvider client={queryClient}>
+            <BrowserRouter>
+              <AuthProvider>
+                <App />
+              </AuthProvider>
+            </BrowserRouter>
+          </QueryClientProvider>
+        </AntApp>
+      </ConfigProvider>
+    </ErrorBoundary>
+  );
+}
+createRoot(document.getElementById("root")!).render(
+  <I18nextProvider i18n={i18n}>
+    <ApplicationRoot />
+  </I18nextProvider>,
 );
